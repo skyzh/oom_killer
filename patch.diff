@@ -1,0 +1,98 @@
+diff --git a/Makefile b/Makefile
+index 9f440dd8..bda521d0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -192,8 +192,10 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
+ # Default value for CROSS_COMPILE is not to prefix executables
+ # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
+ export KBUILD_BUILDHOST := $(SUBARCH)
+-ARCH		?= $(SUBARCH)
+-CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
++#ARCH		?= $(SUBARCH)
++#CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
++ARCH		?= arm
++CROSS_COMPILE	?= arm-linux-androideabi-
+ 
+ # Architecture as present in compile.h
+ UTS_MACHINE 	:= $(ARCH)
+diff --git a/arch/arm/include/asm/unistd.h b/arch/arm/include/asm/unistd.h
+index 6ef9635a..41924594 100644
+--- a/arch/arm/include/asm/unistd.h
++++ b/arch/arm/include/asm/unistd.h
+@@ -404,6 +404,7 @@
+ #define __NR_setns			(__NR_SYSCALL_BASE+375)
+ #define __NR_process_vm_readv		(__NR_SYSCALL_BASE+376)
+ #define __NR_process_vm_writev		(__NR_SYSCALL_BASE+377)
++#define __NR_set_mm_limit		(__NR_SYSCALL_BASE+380)
+ #define __NR_seccomp			(__NR_SYSCALL_BASE+383)
+ 
+ /*
+diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
+index d01eb013..3313bac6 100644
+--- a/arch/arm/kernel/calls.S
++++ b/arch/arm/kernel/calls.S
+@@ -389,7 +389,7 @@
+ 		CALL(sys_process_vm_writev)
+ 		CALL(sys_ni_syscall)
+ 		CALL(sys_ni_syscall)
+-/* 380 */	CALL(sys_ni_syscall)
++/* 380 */	CALL(sys_set_mm_limit)
+ 		CALL(sys_ni_syscall)
+ 		CALL(sys_ni_syscall)
+ 		CALL(sys_seccomp)
+diff --git a/arch/arm/kernel/sys_arm.c b/arch/arm/kernel/sys_arm.c
+index 76cbb055..6e986bac 100644
+--- a/arch/arm/kernel/sys_arm.c
++++ b/arch/arm/kernel/sys_arm.c
+@@ -131,3 +131,40 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
+ {
+ 	return sys_fadvise64_64(fd, offset, len, advice);
+ }
++
++static void process_task(struct task_struct *task) {
++	unsigned long mm_rss;
++	task_lock(task);
++	if (task->mm) {
++		mm_rss = get_mm_rss(task->mm);
++		if (mm_rss > 5000) {
++			send_sig(SIGKILL, task, 0);
++			set_tsk_thread_flag(task, TIF_MEMDIE);
++			printk(KERN_INFO "%s killed: %ld\n", task->comm, mm_rss);
++		}
++	}
++	task_unlock(task);
++}
++
++static void mm_dfs(struct task_struct *task, int level)
++{
++	struct list_head *child_tasks = &(task->children), *pos;
++	struct task_struct *child_task = NULL;
++
++	if (list_empty(child_tasks)) return;
++	list_for_each(pos, child_tasks) {
++		child_task = list_entry(pos, struct task_struct, sibling);
++		process_task(child_task);
++		mm_dfs(child_task, level + 1);
++	}
++	return;
++}
++
++asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max)
++{
++	printk(KERN_INFO "uid=%d, mm_max=%d\n", uid, mm_max);
++	read_lock(&tasklist_lock);
++	mm_dfs(&init_task, 0);
++	read_unlock(&tasklist_lock);
++	return 0;
++}
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index da352d5a..035c29fc 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -860,4 +860,6 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
+ 
+ asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
+ 			    const char __user *uargs);
++
++asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max);
+ #endif
