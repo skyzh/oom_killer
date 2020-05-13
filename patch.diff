@@ -41,29 +41,91 @@ index d01eb013..3313bac6 100644
  		CALL(sys_ni_syscall)
  		CALL(sys_seccomp)
 diff --git a/arch/arm/kernel/sys_arm.c b/arch/arm/kernel/sys_arm.c
-index 76cbb055..6e986bac 100644
+index 76cbb055..dd80e457 100644
 --- a/arch/arm/kernel/sys_arm.c
 +++ b/arch/arm/kernel/sys_arm.c
-@@ -131,3 +131,40 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
+@@ -131,3 +131,129 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
  {
  	return sys_fadvise64_64(fd, offset, len, advice);
  }
 +
-+static void process_task(struct task_struct *task) {
++#include <linux/hashtable.h>
++
++struct mm_limit_struct {
++	int alloc_pages;
++	int alloc_pages_ticket;
++	atomic_t alloc_pages_limit;
++	uid_t uid;
++	struct hlist_node hash;
++};
++
++DEFINE_HASHTABLE(mm_limit_struct_hash, 8);
++
++static struct mm_limit_struct *get_mm_limit(uid_t uid) {
++	struct mm_limit_struct *m;
++	struct hlist_node *node;
++
++	hash_for_each_possible(mm_limit_struct_hash, m, node, hash, uid)
++	{
++		return m;
++	}
++	
++	return NULL;
++}
++
++static long set_mm_limit(uid_t uid, unsigned long mm_max) {
++	struct mm_limit_struct *m = get_mm_limit(uid);
++	if (m) {
++		atomic_set(&m->alloc_pages_limit, mm_max);
++		return 0;
++	}
++	m = kmalloc(sizeof(struct mm_limit_struct), GFP_KERNEL);
++	m->alloc_pages = 0;
++	m->alloc_pages_ticket = 0;
++	atomic_set(&m->alloc_pages_limit, mm_max);
++	m->uid = uid;
++	hash_add(mm_limit_struct_hash, &m->hash, uid);
++	return 0;
++}
++
++static void process_task(struct task_struct *task, int ticket) {
 +	unsigned long mm_rss;
++	struct mm_limit_struct *m;
 +	task_lock(task);
 +	if (task->mm) {
 +		mm_rss = get_mm_rss(task->mm);
-+		if (mm_rss > 5000) {
-+			send_sig(SIGKILL, task, 0);
-+			set_tsk_thread_flag(task, TIF_MEMDIE);
-+			printk(KERN_INFO "%s killed: %ld\n", task->comm, mm_rss);
++		m = get_mm_limit(task->cred->uid);
++		if (m) {
++			long page_limit = atomic_read(&m->alloc_pages_limit);
++			printk(KERN_INFO "pid=%d, rss=%d uid=%d uid_resource=%d uid_limit=%d\n", 
++				task->pid, 
++				mm_rss, 
++				task->cred->uid, 
++				m->alloc_pages,
++				m->alloc_pages_limit);
++			if (m->alloc_pages_ticket != ticket) {
++				m->alloc_pages_ticket = ticket;
++				m->alloc_pages = mm_rss;
++			} else {
++				m->alloc_pages += mm_rss;
++			}
++			if (m->alloc_pages > page_limit && page_limit != 0) {
++				send_sig(SIGKILL, task, 0);
++				set_tsk_thread_flag(task, TIF_MEMDIE);
++				printk(KERN_INFO "[KILLED!] %s killed: %ld\n", task->comm, mm_rss);
++				m->alloc_pages -= mm_rss;
++			}
++		} else {
++			/* printk(KERN_INFO "pid=%d, rss=%d uid=%d no limit\n", 
++				task->pid, 
++				mm_rss, 
++				task->cred->uid); */
 +		}
 +	}
 +	task_unlock(task);
 +}
 +
-+static void mm_dfs(struct task_struct *task, int level)
++static void mm_dfs(struct task_struct *task, int ticket)
 +{
 +	struct list_head *child_tasks = &(task->children), *pos;
 +	struct task_struct *child_task = NULL;
@@ -71,18 +133,45 @@ index 76cbb055..6e986bac 100644
 +	if (list_empty(child_tasks)) return;
 +	list_for_each(pos, child_tasks) {
 +		child_task = list_entry(pos, struct task_struct, sibling);
-+		process_task(child_task);
-+		mm_dfs(child_task, level + 1);
++		process_task(child_task, ticket);
++		mm_dfs(child_task, ticket);
 +	}
 +	return;
 +}
 +
++#include <linux/timer.h>
++
++static struct timer_list my_timer;
++static int timer_setup = 0;
++static int timer_ticket = 1;
++DEFINE_MUTEX(timer_setup_mutex);
++
++static void mm_setup_timer();
++
++static void mm_hook() {
++	printk(KERN_INFO "oom killer running\n");
++	read_lock(&tasklist_lock);
++	mm_dfs(&init_task, timer_ticket++);
++	read_unlock(&tasklist_lock);
++	mm_setup_timer();
++}
++
++static void mm_setup_timer() {
++	setup_timer(&my_timer, mm_hook, 0);
++  	mod_timer(&my_timer, jiffies + msecs_to_jiffies(2100));
++}
++
 +asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max)
 +{
++	mutex_lock(&timer_setup_mutex);
++	if (timer_setup == 0) {
++		mm_setup_timer();
++		timer_setup = 1;
++	}
++	mutex_unlock(&timer_setup_mutex);
++
 +	printk(KERN_INFO "uid=%d, mm_max=%d\n", uid, mm_max);
-+	read_lock(&tasklist_lock);
-+	mm_dfs(&init_task, 0);
-+	read_unlock(&tasklist_lock);
++	if (set_mm_limit(uid, mm_max)) return -EFAULT;
 +	return 0;
 +}
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
