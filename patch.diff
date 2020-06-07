@@ -47,13 +47,15 @@ index d01eb013..fc06d516 100644
  #ifndef syscalls_counted
  .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
 diff --git a/arch/arm/kernel/sys_arm.c b/arch/arm/kernel/sys_arm.c
-index 76cbb055..ba5c2fcd 100644
+index 76cbb055..132d4f9b 100644
 --- a/arch/arm/kernel/sys_arm.c
 +++ b/arch/arm/kernel/sys_arm.c
-@@ -131,3 +131,161 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
+@@ -131,3 +131,223 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
  {
  	return sys_fadvise64_64(fd, offset, len, advice);
  }
++
++/* oom_killer implementation */
 +
 +#include <linux/hashtable.h>
 +
@@ -94,21 +96,23 @@ index 76cbb055..ba5c2fcd 100644
 +	return 0;
 +}
 +
-+static void process_task(struct task_struct *task, int ticket) {
++static int process_task(struct task_struct *task, int ticket) {
 +	unsigned long mm_rss;
 +	struct mm_limit_struct *m;
++	int result = -1;
++
 +	task_lock(task);
 +	if (task->mm) {
 +		mm_rss = get_mm_rss(task->mm);
 +		m = get_mm_limit(task->cred->uid);
 +		if (m) {
 +			long page_limit = atomic_read(&m->alloc_pages_limit);
-+			printk(KERN_INFO "pid=%d, rss=%d uid=%d uid_resource=%d uid_limit=%d\n", 
++			/* printk(KERN_INFO "pid=%d, rss=%lu uid=%u uid_resource=%d uid_limit=%lu\n", 
 +				task->pid, 
 +				mm_rss, 
 +				task->cred->uid, 
 +				m->alloc_pages,
-+				page_limit);
++				page_limit); */
 +			if (m->alloc_pages_ticket != ticket) {
 +				m->alloc_pages_ticket = ticket;
 +				m->alloc_pages = mm_rss;
@@ -116,75 +120,134 @@ index 76cbb055..ba5c2fcd 100644
 +				m->alloc_pages += mm_rss;
 +			}
 +			if (m->alloc_pages > page_limit && page_limit != 0) {
-+				if (!test_tsk_thread_flag(task, TIF_MEMDIE)) {
-+					send_sig(SIGKILL, task, 0);
-+					set_tsk_thread_flag(task, TIF_MEMDIE);
-+					printk(KERN_INFO "[KILLED!] %s killed: %ld\n", task->comm, mm_rss);
-+					m->alloc_pages -= mm_rss;
-+				}
++				result = task->cred->uid;
 +			}
-+		} else {
-+			/* printk(KERN_INFO "pid=%d, rss=%d uid=%d no limit\n", 
-+				task->pid, 
-+				mm_rss, 
-+				task->cred->uid); */
 +		}
 +	}
 +	task_unlock(task);
++	
++	return result;
 +}
 +
-+static void mm_dfs(struct task_struct *task, int ticket)
-+{
-+	struct list_head *child_tasks = &(task->children), *pos;
-+	struct task_struct *child_task = NULL;
++static unsigned long process_badness(struct task_struct *task) {
++	unsigned long mm_rss;
++	task_lock(task);
++	mm_rss = get_mm_rss(task->mm);
++	task_unlock(task);
 +
-+	if (list_empty(child_tasks)) return;
-+	list_for_each(pos, child_tasks) {
-+		child_task = list_entry(pos, struct task_struct, sibling);
-+		process_task(child_task, ticket);
-+		mm_dfs(child_task, ticket);
++	return mm_rss;
++}
++
++static int process_kill(struct task_struct *task, unsigned long badness) {
++	if (!test_tsk_thread_flag(task, TIF_MEMDIE)) {
++		send_sig(SIGKILL, task, 0);
++		set_tsk_thread_flag(task, TIF_MEMDIE);
++		printk(KERN_INFO "[NEW_OOM] %s killed badness=%ld\n", task->comm, badness);
++		return 0;
 +	}
-+	return;
++	return 1;
++}
++
++static long process_user(int ticket) {
++	struct task_struct *p;
++	long uid;
++
++	for_each_process(p) {
++		uid = process_task(p, ticket);
++		if (uid != -1) return uid;
++	}
++
++	return -1;
++}
++
++static int mm_kill(int ticket)
++{
++	long uid;
++	struct task_struct *p;
++	struct task_struct *victim = NULL;
++	long badness = 0, max_badness = 0;
++	int result = 0;
++
++	read_lock(&tasklist_lock);
++
++	uid = process_user(ticket);
++
++	for_each_process(p) {
++		if (p->cred->uid == uid) {
++			badness = process_badness(p);
++			if (badness > max_badness) {
++				max_badness = badness;
++				victim = p;
++			}
++		}
++	}
++
++	if (victim) {
++		result = !process_kill(victim, max_badness);
++	}
++
++	read_unlock(&tasklist_lock);
++
++	return result;
 +}
 +
 +#include <linux/timer.h>
 +
 +static struct timer_list timer_trigger, timer_interval;
 +static int timer_ticket = 1;
-+atomic_t enabled = ATOMIC_INIT(0);
++atomic_t timer_enabled = ATOMIC_INIT(0);
 +
++#define TRIGGERED_BY_TIMER	1
++#define TRIGGERED_BY_SYSCALL	2
++#define TRIGGERED_BY_OOM	3
 +
-+static void mm_hook(void) {
-+	read_lock(&tasklist_lock);
-+	mm_dfs(&init_task, timer_ticket++);
-+	read_unlock(&tasklist_lock);
++static void mm_hook(int trigger) {
++	int result = 0;
++	
++	result = mm_kill(timer_ticket++);
++	
++	if (result) {
++		switch(trigger) {
++			case TRIGGERED_BY_SYSCALL:
++				printk(KERN_INFO "[NEW_OOM] triggered by syscall\n");
++				break;
++			case TRIGGERED_BY_TIMER:
++				printk(KERN_INFO "[NEW_OOM] triggered by timer\n");
++				break;
++		}
++	}
 +}
 +
 +static void mm_hook_trigger(unsigned long x) {
-+	mm_hook();
++	mm_hook(TRIGGERED_BY_OOM);
 +}
 +
 +void mm_trigger_interval(void);
 +
 +static void mm_hook_interval(unsigned long x) {
-+	mm_hook();
++	mm_hook(TRIGGERED_BY_TIMER);
 +	mm_trigger_interval();
 +}
 +
 +void mm_trigger_interval(void) {
-+	setup_timer(&timer_interval, mm_hook_interval, 0);
 +  	mod_timer(&timer_interval, jiffies + msecs_to_jiffies(200));
 +}
 +
 +void mm_trigger_hook(void) {
++  	mod_timer(&timer_trigger, jiffies);
++}
++
++void mm_trigger_init(void) {
++	setup_timer(&timer_interval, mm_hook_interval, 0);
 +	setup_timer(&timer_trigger, mm_hook_trigger, 0);
-+  	mod_timer(&timer_trigger, jiffies + msecs_to_jiffies(1));
 +}
 +
 +asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max)
 +{
-+	atomic_set(&enabled, 1);
-+	printk(KERN_INFO "uid=%d, mm_max=%d\n", uid, mm_max);
++	if (atomic_xchg(&timer_enabled, 1) == 0) {
++		mm_trigger_interval();
++	}
++	printk(KERN_INFO "uid=%u, mm_max=%lu\n", uid, mm_max);
 +	if (set_mm_limit(uid, mm_max)) return -EFAULT;
 +	mm_trigger_hook();
 +	return 0;
@@ -208,8 +271,7 @@ index 76cbb055..ba5c2fcd 100644
 +}
 +
 +asmlinkage long sys_run_oom_killer(void) {
-+	printk(KERN_INFO "[NEW_OOM] triggered by syscall\n");
-+	mm_hook();
++	mm_hook(TRIGGERED_BY_SYSCALL);
 +	return 0;
 +}
 diff --git a/include/linux/mm.h b/include/linux/mm.h
@@ -292,6 +354,28 @@ index 08fa2724..04dad76c 100644
  #endif /* _TRACE_KMEM_H */
  
  /* This part must be outside protection */
+diff --git a/init/main.c b/init/main.c
+index db8e3818..e158a8fc 100644
+--- a/init/main.c
++++ b/init/main.c
+@@ -446,6 +446,8 @@ void __init __weak thread_info_cache_init(void)
+ {
+ }
+ 
++void mm_trigger_init(void);
++
+ /*
+  * Set up kernel memory allocators
+  */
+@@ -636,6 +638,8 @@ asmlinkage void __init start_kernel(void)
+ 
+ 	ftrace_init();
+ 
++	mm_trigger_init();
++
+ 	/* Do the rest non-__init'ed, we're now alive */
+ 	rest_init();
+ }
 diff --git a/mm/memory.c b/mm/memory.c
 index 17d8661f..021b7021 100644
 --- a/mm/memory.c
