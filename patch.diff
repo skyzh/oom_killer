@@ -16,35 +16,41 @@ index 9f440dd8..bda521d0 100644
  # Architecture as present in compile.h
  UTS_MACHINE 	:= $(ARCH)
 diff --git a/arch/arm/include/asm/unistd.h b/arch/arm/include/asm/unistd.h
-index 6ef9635a..41924594 100644
+index 6ef9635a..12960673 100644
 --- a/arch/arm/include/asm/unistd.h
 +++ b/arch/arm/include/asm/unistd.h
-@@ -404,6 +404,7 @@
+@@ -404,6 +404,9 @@
  #define __NR_setns			(__NR_SYSCALL_BASE+375)
  #define __NR_process_vm_readv		(__NR_SYSCALL_BASE+376)
  #define __NR_process_vm_writev		(__NR_SYSCALL_BASE+377)
 +#define __NR_set_mm_limit		(__NR_SYSCALL_BASE+380)
++#define __NR_get_mm_limit		(__NR_SYSCALL_BASE+381)
++#define __NR_run_oom_killer		(__NR_SYSCALL_BASE+382)
  #define __NR_seccomp			(__NR_SYSCALL_BASE+383)
  
  /*
 diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
-index d01eb013..3313bac6 100644
+index d01eb013..fc06d516 100644
 --- a/arch/arm/kernel/calls.S
 +++ b/arch/arm/kernel/calls.S
-@@ -389,7 +389,7 @@
+@@ -389,9 +389,9 @@
  		CALL(sys_process_vm_writev)
  		CALL(sys_ni_syscall)
  		CALL(sys_ni_syscall)
 -/* 380 */	CALL(sys_ni_syscall)
+-		CALL(sys_ni_syscall)
+-		CALL(sys_ni_syscall)
 +/* 380 */	CALL(sys_set_mm_limit)
- 		CALL(sys_ni_syscall)
- 		CALL(sys_ni_syscall)
++		CALL(sys_get_mm_limit)
++		CALL(sys_run_oom_killer)
  		CALL(sys_seccomp)
+ #ifndef syscalls_counted
+ .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
 diff --git a/arch/arm/kernel/sys_arm.c b/arch/arm/kernel/sys_arm.c
-index 76cbb055..dd80e457 100644
+index 76cbb055..ba5c2fcd 100644
 --- a/arch/arm/kernel/sys_arm.c
 +++ b/arch/arm/kernel/sys_arm.c
-@@ -131,3 +131,129 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
+@@ -131,3 +131,161 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
  {
  	return sys_fadvise64_64(fd, offset, len, advice);
  }
@@ -102,7 +108,7 @@ index 76cbb055..dd80e457 100644
 +				mm_rss, 
 +				task->cred->uid, 
 +				m->alloc_pages,
-+				m->alloc_pages_limit);
++				page_limit);
 +			if (m->alloc_pages_ticket != ticket) {
 +				m->alloc_pages_ticket = ticket;
 +				m->alloc_pages = mm_rss;
@@ -110,10 +116,12 @@ index 76cbb055..dd80e457 100644
 +				m->alloc_pages += mm_rss;
 +			}
 +			if (m->alloc_pages > page_limit && page_limit != 0) {
-+				send_sig(SIGKILL, task, 0);
-+				set_tsk_thread_flag(task, TIF_MEMDIE);
-+				printk(KERN_INFO "[KILLED!] %s killed: %ld\n", task->comm, mm_rss);
-+				m->alloc_pages -= mm_rss;
++				if (!test_tsk_thread_flag(task, TIF_MEMDIE)) {
++					send_sig(SIGKILL, task, 0);
++					set_tsk_thread_flag(task, TIF_MEMDIE);
++					printk(KERN_INFO "[KILLED!] %s killed: %ld\n", task->comm, mm_rss);
++					m->alloc_pages -= mm_rss;
++				}
 +			}
 +		} else {
 +			/* printk(KERN_INFO "pid=%d, rss=%d uid=%d no limit\n", 
@@ -141,47 +149,170 @@ index 76cbb055..dd80e457 100644
 +
 +#include <linux/timer.h>
 +
-+static struct timer_list my_timer;
-+static int timer_setup = 0;
++static struct timer_list timer_trigger, timer_interval;
 +static int timer_ticket = 1;
-+DEFINE_MUTEX(timer_setup_mutex);
++atomic_t enabled = ATOMIC_INIT(0);
 +
-+static void mm_setup_timer();
 +
-+static void mm_hook() {
-+	printk(KERN_INFO "oom killer running\n");
++static void mm_hook(void) {
 +	read_lock(&tasklist_lock);
 +	mm_dfs(&init_task, timer_ticket++);
 +	read_unlock(&tasklist_lock);
-+	mm_setup_timer();
 +}
 +
-+static void mm_setup_timer() {
-+	setup_timer(&my_timer, mm_hook, 0);
-+  	mod_timer(&my_timer, jiffies + msecs_to_jiffies(2100));
++static void mm_hook_trigger(unsigned long x) {
++	mm_hook();
++}
++
++void mm_trigger_interval(void);
++
++static void mm_hook_interval(unsigned long x) {
++	mm_hook();
++	mm_trigger_interval();
++}
++
++void mm_trigger_interval(void) {
++	setup_timer(&timer_interval, mm_hook_interval, 0);
++  	mod_timer(&timer_interval, jiffies + msecs_to_jiffies(200));
++}
++
++void mm_trigger_hook(void) {
++	setup_timer(&timer_trigger, mm_hook_trigger, 0);
++  	mod_timer(&timer_trigger, jiffies + msecs_to_jiffies(1));
 +}
 +
 +asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max)
 +{
-+	mutex_lock(&timer_setup_mutex);
-+	if (timer_setup == 0) {
-+		mm_setup_timer();
-+		timer_setup = 1;
-+	}
-+	mutex_unlock(&timer_setup_mutex);
-+
++	atomic_set(&enabled, 1);
 +	printk(KERN_INFO "uid=%d, mm_max=%d\n", uid, mm_max);
 +	if (set_mm_limit(uid, mm_max)) return -EFAULT;
++	mm_trigger_hook();
 +	return 0;
 +}
++
++asmlinkage long sys_get_mm_limit(uid_t *uid, unsigned long *mm_max, 
++				 unsigned int max_element) {
++	unsigned bkt;
++	struct hlist_node *node;
++	struct mm_limit_struct *m;
++	int i = 0;
++
++	hash_for_each(mm_limit_struct_hash, bkt, node, m, hash) {
++		if (put_user(m->uid, uid + i) < 0) return -EFAULT;
++		if (put_user(atomic_read(&m->alloc_pages_limit), mm_max + i) < 0) return -EFAULT;
++		i++;
++		if (i >= max_element) return -EFAULT;
++	}
++	
++	return i;
++}
++
++asmlinkage long sys_run_oom_killer(void) {
++	printk(KERN_INFO "[NEW_OOM] triggered by syscall\n");
++	mm_hook();
++	return 0;
++}
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+index 54cf5695..3a3fc1f3 100644
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1090,19 +1090,24 @@ static inline unsigned long get_mm_counter(struct mm_struct *mm, int member)
+ 	return (unsigned long)val;
+ }
+ 
++void mm_trace_rss_stat(int member, long count);
++
+ static inline void add_mm_counter(struct mm_struct *mm, int member, long value)
+ {
+-	atomic_long_add(value, &mm->rss_stat.count[member]);
++	long count = atomic_long_add_return(value, &mm->rss_stat.count[member]);
++	mm_trace_rss_stat(member, count);
+ }
+ 
+ static inline void inc_mm_counter(struct mm_struct *mm, int member)
+ {
+-	atomic_long_inc(&mm->rss_stat.count[member]);
++	long count = atomic_long_inc_return(&mm->rss_stat.count[member]);
++	mm_trace_rss_stat(member, count);
+ }
+ 
+ static inline void dec_mm_counter(struct mm_struct *mm, int member)
+ {
+-	atomic_long_dec(&mm->rss_stat.count[member]);
++	long count = atomic_long_dec_return(&mm->rss_stat.count[member]);
++	mm_trace_rss_stat(member, count);
+ }
+ 
+ static inline unsigned long get_mm_rss(struct mm_struct *mm)
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index da352d5a..035c29fc 100644
+index da352d5a..90796429 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -860,4 +860,6 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
+@@ -860,4 +860,12 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
  
  asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
  			    const char __user *uargs);
 +
 +asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max);
++
++asmlinkage long sys_get_mm_limit(uid_t *uid, unsigned long *mm_max, 
++				 unsigned int max_element);
++
++asmlinkage long run_oom_killer(void);
++
  #endif
+diff --git a/include/trace/events/kmem.h b/include/trace/events/kmem.h
+index 08fa2724..04dad76c 100644
+--- a/include/trace/events/kmem.h
++++ b/include/trace/events/kmem.h
+@@ -302,6 +302,26 @@ TRACE_EVENT(mm_page_alloc_extfrag,
+ 		__entry->alloc_migratetype == __entry->fallback_migratetype)
+ );
+ 
++TRACE_EVENT(rss_stat,
++	TP_PROTO(int member, long count),
++
++	TP_ARGS(member, count),
++
++	TP_STRUCT__entry(
++		__field(int, member)
++		__field(long, size)
++	),
++
++	TP_fast_assign(
++		__entry->member = member;
++		__entry->size = count;
++	),
++
++	TP_printk("member=%d size=%ld",
++		__entry->member,
++		__entry->size)
++	);
++
+ #endif /* _TRACE_KMEM_H */
+ 
+ /* This part must be outside protection */
+diff --git a/mm/memory.c b/mm/memory.c
+index 17d8661f..021b7021 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -58,6 +58,8 @@
+ #include <linux/elf.h>
+ #include <linux/gfp.h>
+ 
++#include <trace/events/kmem.h>
++
+ #include <asm/io.h>
+ #include <asm/pgalloc.h>
+ #include <asm/uaccess.h>
+@@ -122,6 +124,10 @@ static int __init init_zero_pfn(void)
+ }
+ core_initcall(init_zero_pfn);
+ 
++void mm_trace_rss_stat(int member, long count)
++{
++	trace_rss_stat(member, count);
++}
+ 
+ #if defined(SPLIT_RSS_COUNTING)
+ 
