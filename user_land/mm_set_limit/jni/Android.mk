@@ -1,8 +1,8 @@
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
-LOCAL_SRC_FILES := test_syscall.c
-LOCAL_MODULE := test_syscall
+LOCAL_SRC_FILES := mm_set_limit.c
+LOCAL_MODULE := mm_set_limit
 LOCAL_CFLAGS += -pie -fPIE
 LOCAL_LDFLAGS += -pie -fPIE
 LOCAL_FORCE_STATIC_EXECUTABLE := true

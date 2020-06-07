@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <unordered_map>
+#include <set>
 #include <sys/stat.h> 
 #include <sys/syscall.h> 
 #include <fcntl.h>
@@ -17,8 +18,13 @@ unordered_map<int, int> pid_to_user;
 unordered_map<int, long> pid_allocation;
 unordered_map<int, long> user_allocation;
 unordered_map<int, long> user_limit;
+int trigger = 0;
 
 const int LIMIT_BUFFER = 128;
+
+inline long get_soft_limit(long limit) {
+    return limit * 0.9;
+}
 
 void read_limit() {
     int size;
@@ -29,7 +35,7 @@ void read_limit() {
     if ((size = get_mm_limit(uid, mm_max, LIMIT_BUFFER)) > 0) {
         printf("limit buffer updated %d\n", size);
         for (int i = 0; i < size; i++) {
-            user_limit[uid[i]] = mm_max[i];
+            user_limit[uid[i]] = get_soft_limit(mm_max[i]);
         }
     } else {
         // printf("failed to update limit buffer %d\n", size);
@@ -62,9 +68,15 @@ inline int read_uid(int pid) {
 
 void check_allocation(int uid, long prev_allocation, long allocation) {
     long limit = user_limit[uid];
-    if (limit != 0 && prev_allocation <= limit && allocation > limit) {
-        printf("triggered as %d exceed %ld (%ld)\n", uid, limit, allocation);
-        run_oom_killer();
+    if (limit != 0) {
+        if (prev_allocation <= limit && allocation > limit) {
+            trigger += 1;
+            printf("triggered as %d exceed %ld (%ld)\n", uid, limit, allocation);
+            run_oom_killer();
+        }
+        if (prev_allocation > limit && allocation <= limit) {
+            trigger -= 1;
+        }
     }
 }
 
@@ -82,6 +94,13 @@ inline void process_event(int pid, const char* type, int member, long size) {
     }
 }
 
+void stat() {
+    printf("stat\n");
+    for (auto v: user_allocation) {
+        printf("%d: %ld\n", v.first, v.second);
+    }
+}
+
 int main() {
     const char* pipe_path = "/sys/kernel/debug/tracing/trace_pipe";
     // const char* pipe_path = "test_file.in";
@@ -92,6 +111,7 @@ int main() {
     int member;
     long size;
     int count = 0;
+    int oom_count = 0;
     printf("mm_notifier running...\n");
     read_limit();
     while (fgets(buffer, BUFFER_SIZE, pipe_file)) {
@@ -101,10 +121,13 @@ int main() {
         if (++count > 10000) {
             read_limit();
             count = 0;
-            printf("stat\n");
-            for (auto v: user_allocation) {
-                printf("%d: %ld\n", v.first, v.second);
-            }
+            pid_to_user.clear();
+            stat();
+        }
+        if (++oom_count > 10) {
+            oom_count = 0;
+            if (trigger > 0)
+                run_oom_killer();
         }
     }
     fclose(pipe_file);
