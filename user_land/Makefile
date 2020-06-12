@@ -30,16 +30,69 @@ get_limit: push_mm_get_limit
 clean_%: FORCE
 	cd $* && ndk-build clean
 
-clean: clean_mm_get_limit clean_mm_notifier clean_mm_set_limit
+clean: clean_mm_get_limit clean_mm_notifier clean_mm_set_limit clean_benchmark
 
 notifier: push_mm_notifier
 	@echo -e "$(TESTCASE_COLOR)running mm_notifier...$(NO_COLOR)"
 	adb shell "echo 1 > /sys/kernel/debug/tracing/events/kmem/rss_stat/enable"
 	@adb shell "cd $(INSTALL_PATH) && nice -n -20 ./mm_notifier"
 
-emulator: FORCE
+benchmark_with_limit: push_benchmark push_mm_set_limit
+	@echo -e "$(TESTCASE_COLOR)running benchmark...$(NO_COLOR)"
+	@rm benchmark/out/*.out; true
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 2000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 4194304 100" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 34000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 33554432 50" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 62000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 67108864 20" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 150000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 134217728 10" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 2000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 1048576 100" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 34000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 4194304 50" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 67000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 16777216 20" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 150000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 67108864 10" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 9500"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 1048576 50" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 34000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 4194304 20" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 150000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 16777216 10" >> benchmark/out/result.out
+
+benchmark: push_benchmark
+	@echo -e "$(TESTCASE_COLOR)running benchmark...$(NO_COLOR)"
+	@rm benchmark/out/*.out; true
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 0"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10071 2000000"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10072 2000000"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10073 2000000"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10074 2000000"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10075 2000000"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10076 2000000"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 4194304 100" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 33554432 50" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 67108864 20" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 134217728 10" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 1048576 100" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 4194304 50" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 16777216 20" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 4 67108864 10" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 1048576 50" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 4194304 20" >> benchmark/out/result.out
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 16777216 10" >> benchmark/out/result.out
+
+build_kernel:
 	make -C $(KID)
+
+emulator: build_kernel
 	cd ~/android-sdk-linux/tools && ./emulator -no-window @OsPrj-518021910395 -show-kernel -kernel $(KERNEL_PATH)
+
+emulator_prebuilt:
+	cd ~/android-sdk-linux/tools && ./emulator -no-window @OsPrj-518021910395 -show-kernel
 
 FORCE:
 

@@ -1,0 +1,22 @@
+process=1 mem=4194304 epoch=100
+    0m13.55s real     0m0.42s user     0m3.27s system
+process=1 mem=33554432 epoch=50
+    0m37.32s real     0m0.92s user     0m11.68s system
+process=1 mem=67108864 epoch=20
+    0m30.29s real     0m0.83s user     0m8.83s system
+process=1 mem=134217728 epoch=10
+    0m27.89s real     0m0.92s user     0m7.55s system
+process=4 mem=1048576 epoch=100
+    0m20.31s real     0m0.61s user     0m4.38s system
+process=4 mem=4194304 epoch=50
+    0m20.75s real     0m0.57s user     0m6.33s system
+process=4 mem=16777216 epoch=20
+    0m31.21s real     0m0.68s user     0m9.26s system
+process=4 mem=67108864 epoch=10
+    0m54.65s real     0m1.23s user     0m16.03s system
+process=8 mem=1048576 epoch=50
+    0m17.10s real     0m0.43s user     0m4.14s system
+process=8 mem=4194304 epoch=20
+    0m17.01s real     0m0.38s user     0m5.27s system
+process=8 mem=16777216 epoch=10
+    0m29.04s real     0m0.76s user     0m8.91s system
