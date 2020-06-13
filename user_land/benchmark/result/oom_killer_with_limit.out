@@ -9,7 +9,8 @@ process=1 mem=134217728 epoch=10
 process=4 mem=1048576 epoch=100
     0m16.69s real     0m0.49s user     0m3.89s system
 process=4 mem=4194304 epoch=50
-    0m19.57s real     0m0.61s user     0m5.59s systemprocess=4 mem=16777216 epoch=20
+    0m19.57s real     0m0.61s user     0m5.59s system
+process=4 mem=16777216 epoch=20
     0m24.23s real     0m0.96s user     0m8.00s system
 process=4 mem=67108864 epoch=10
     0m43.63s real     0m1.46s user     0m15.30s system

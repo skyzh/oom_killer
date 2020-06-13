@@ -1,0 +1,45 @@
+Test, Process, Memory, Epoch, Real, User, System
+Unmodified, 1, 4194304, 100, 14.91, 0.43, 2.86
+Unmodified, 1, 33554432, 50, 43.45, 0.74, 10.81
+Unmodified, 1, 67108864, 20, 27.45, 0.71, 7.26
+Unmodified, 1, 134217728, 10, 31.09, 0.68, 6.52
+Unmodified, 4, 1048576, 100, 5.0, 0.42, 3.14
+Unmodified, 4, 4194304, 50, 7.21, 0.47, 4.94
+Unmodified, 4, 16777216, 20, 7.27, 0.82, 6.29
+Unmodified, 4, 67108864, 10, 12.94, 1.28, 11.42
+Unmodified, 8, 1048576, 50, 4.47, 0.33, 3.18
+Unmodified, 8, 4194304, 20, 5.84, 0.48, 3.71
+Unmodified, 8, 16777216, 10, 8.31, 0.81, 5.71
+OOM Killer With Limit, 1, 4194304, 100, 15.8, 0.36, 3.33
+OOM Killer With Limit, 1, 33554432, 50, 39.23, 1.02, 10.23
+OOM Killer With Limit, 1, 67108864, 20, 27.58, 0.88, 7.76
+OOM Killer With Limit, 1, 134217728, 10, 21.03, 0.77, 7.86
+OOM Killer With Limit, 4, 1048576, 100, 16.69, 0.49, 3.89
+OOM Killer With Limit, 4, 4194304, 50, 19.57, 0.61, 5.59
+OOM Killer With Limit, 4, 16777216, 20, 24.23, 0.96, 8.0
+OOM Killer With Limit, 4, 67108864, 10, 43.63, 1.46, 15.3
+OOM Killer With Limit, 8, 1048576, 50, 16.81, 0.42, 3.31
+OOM Killer With Limit, 8, 4194304, 20, 12.51, 0.64, 4.18
+OOM Killer With Limit, 8, 16777216, 10, 21.95, 0.81, 8.1
+OOM Killer Enabled, 1, 4194304, 100, 13.55, 0.42, 3.27
+OOM Killer Enabled, 1, 33554432, 50, 37.32, 0.92, 11.68
+OOM Killer Enabled, 1, 67108864, 20, 30.29, 0.83, 8.83
+OOM Killer Enabled, 1, 134217728, 10, 27.89, 0.92, 7.55
+OOM Killer Enabled, 4, 1048576, 100, 20.31, 0.61, 4.38
+OOM Killer Enabled, 4, 4194304, 50, 20.75, 0.57, 6.33
+OOM Killer Enabled, 4, 16777216, 20, 31.21, 0.68, 9.26
+OOM Killer Enabled, 4, 67108864, 10, 54.65, 1.23, 16.03
+OOM Killer Enabled, 8, 1048576, 50, 17.1, 0.43, 4.14
+OOM Killer Enabled, 8, 4194304, 20, 17.01, 0.38, 5.27
+OOM Killer Enabled, 8, 16777216, 10, 29.04, 0.76, 8.91
+OOM Killer Disabled, 1, 4194304, 100, 14.77, 0.41, 2.61
+OOM Killer Disabled, 1, 33554432, 50, 38.21, 0.67, 10.36
+OOM Killer Disabled, 1, 67108864, 20, 27.89, 0.66, 7.29
+OOM Killer Disabled, 1, 134217728, 10, 27.06, 0.73, 6.33
+OOM Killer Disabled, 4, 1048576, 100, 6.61, 0.41, 2.89
+OOM Killer Disabled, 4, 4194304, 50, 9.09, 0.53, 4.81
+OOM Killer Disabled, 4, 16777216, 20, 11.64, 0.68, 6.4
+OOM Killer Disabled, 4, 67108864, 10, 21.07, 1.38, 11.66
+OOM Killer Disabled, 8, 1048576, 50, 4.6, 0.34, 2.91
+OOM Killer Disabled, 8, 4194304, 20, 4.25, 0.47, 3.5
+OOM Killer Disabled, 8, 16777216, 10, 8.11, 0.6, 6.06
