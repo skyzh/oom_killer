@@ -1,0 +1,61 @@
+---
+title: "analysis"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+data = read.csv("result.csv")
+data$TimePerEpoch = data$Time / data$Epoch
+data$Type = factor(data$Type, levels=c("Unmodified", "OOM Killer Disabled", "OOM Killer Enabled"))
+data$MemPerProc = as.factor(data$Memory / data$Process / 1024 / 1024)
+data$Process = as.factor(data$Process)
+data$Memory = as.factor(data$Memory / 1024 / 1024)
+data
+```
+
+```{r}
+ggplot(data=data[data$TimeType=="All" & data$Process==1,], aes(x=Memory, y=TimePerEpoch, fill=Type)) + 
+  geom_bar(stat="identity", color="black", size=0.3, position=position_dodge2()) +
+  ggtitle("1 Process Allocating Memory") +
+  labs(y = "Time Per Epoch (s)", x = "Memory (MB)") +
+  theme_minimal() +
+  theme(plot.margin = unit(c(0,0,0,0), "cm")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette="Blues")
+  # scale_color_brewer(palette="Dark2")
+ggsave('result-proc-1.pdf', width=8, height=5)
+```
+
+```{r}
+ggplot(data=data[data$TimeType=="All" & data$Process==4,], aes(x=Memory, y=TimePerEpoch, fill=Type)) + 
+  geom_bar(stat="identity", color="black", size=0.3, position=position_dodge2()) +
+  ggtitle("4 Processes Allocating Memory") +
+  labs(y = "Time Per Epoch (s)", x = "Memory (MB)") +
+  theme_minimal() +
+  theme(plot.margin = unit(c(0,0,0,0), "cm")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette="Blues")
+  # scale_color_brewer(palette="Dark2")
+ggsave('result-proc-4.pdf', width=8, height=5)
+```
+
+```{r}
+ggplot(data=data[data$TimeType=="All" & data$Process==8,], aes(x=Memory, y=TimePerEpoch, fill=Type)) + 
+  geom_bar(stat="identity", color="black", size=0.3, position=position_dodge2()) +
+  ggtitle("8 Processes Allocating Memory") +
+  labs(y = "Time Per Epoch (s)", x = "Memory (MB)") +
+  theme_minimal() +
+  theme(plot.margin = unit(c(0,0,0,0), "cm")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette="Blues")
+  # scale_color_brewer(palette="Dark2")
+ggsave('result-proc-8.pdf', width=8, height=5)
+```

@@ -21,10 +21,14 @@ def parse_file(data):
     for i in range(0, len(data), 2):
         process, mem, epoch = parse_parameter(data[i])
         real, user, system = parse_time_output(data[i + 1])
-        print(f"{name}, {process}, {mem}, {epoch}, {real}, {user}, {system}")
+        print(f"{name}, {type_order}, {process}, {mem}, {epoch},Real, {real}")
+        print(f"{name}, {type_order}, {process}, {mem}, {epoch},User, {user}")
+        print(f"{name}, {type_order}, {process}, {mem}, {epoch},System, {system}")
+        print(f"{name}, {type_order}, {process}, {mem}, {epoch},All, {system + user}")
 
 path = sys.argv[1]
 name = sys.argv[2]
+type_order = sys.argv[3]
 
 with open(path, "r") as f:
     parse_file(f.readlines())
