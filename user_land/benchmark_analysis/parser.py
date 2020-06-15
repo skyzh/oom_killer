@@ -14,17 +14,17 @@ def parse_time_output(data):
     return (parse_time(data[1]), parse_time(data[2]), parse_time(data[3]))
 
 def parse_parameter(data):
-    x = re.search("process=(.*?) mem=(.*?) epoch=(.*)", data)
+    x = re.search("process=(.*?) mem=(.*?) epoch=(.*?)$", data)
     return (int(x.group(1)), int(x.group(2)), int(x.group(3)))
 
 def parse_file(data):
     for i in range(0, len(data), 2):
         process, mem, epoch = parse_parameter(data[i])
         real, user, system = parse_time_output(data[i + 1])
-        print(f"{name}, {type_order}, {process}, {mem}, {epoch},Real, {real}")
-        print(f"{name}, {type_order}, {process}, {mem}, {epoch},User, {user}")
-        print(f"{name}, {type_order}, {process}, {mem}, {epoch},System, {system}")
-        print(f"{name}, {type_order}, {process}, {mem}, {epoch},All, {system + user}")
+        print(f"{name},{type_order},{process},{mem},{epoch},Real,{real}")
+        print(f"{name},{type_order},{process},{mem},{epoch},User,{user}")
+        print(f"{name},{type_order},{process},{mem},{epoch},System,{system}")
+        print(f"{name},{type_order},{process},{mem},{epoch},All,{system + user}")
 
 path = sys.argv[1]
 name = sys.argv[2]

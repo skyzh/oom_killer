@@ -1,0 +1,395 @@
+serial0 console
+emulator: UpdateChecker: skipped version check
+Uncompressing Linux... done, booting the kernel.
+Booting Linux on physical CPU 0
+Initializing cgroup subsys cpu
+Linux version 3.4.67-g8997b471-dirty (skyzh@alexchi-vm) (gcc version 4.9 20150123 (prerelease) (GCC) ) #67 PREEMPT Sun Jun 14 17:45:12 CST 2020
+CPU: ARMv7 Processor [410fc080] revision 0 (ARMv7), cr=10c53c7d
+CPU: PIPT / VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+Machine: Goldfish
+Memory policy: ECC disabled, Data cache writeback
+Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 260096
+Kernel command line: qemu.gles=0 qemu=1 console=ttyS0 android.qemud=ttyS1 androidboot.hardware=goldfish android.checkjni=1 ndns=1
+PID hash table entries: 4096 (order: 2, 16384 bytes)
+Dentry cache hash table entries: 131072 (order: 7, 524288 bytes)
+Inode-cache hash table entries: 65536 (order: 6, 262144 bytes)
+Memory: 1024MB = 1024MB total
+Memory: 1016928k/1016928k available, 31648k reserved, 270336K highmem
+Virtual kernel memory layout:
+    vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+    fixmap  : 0xfff00000 - 0xfffe0000   ( 896 kB)
+    vmalloc : 0xf0000000 - 0xff000000   ( 240 MB)
+    lowmem  : 0xc0000000 - 0xef800000   ( 760 MB)
+    pkmap   : 0xbfe00000 - 0xc0000000   (   2 MB)
+    modules : 0xbf000000 - 0xbfe00000   (  14 MB)
+      .text : 0xc0008000 - 0xc048d73c   (4630 kB)
+      .init : 0xc048e000 - 0xc04b1000   ( 140 kB)
+      .data : 0xc04b2000 - 0xc04ec280   ( 233 kB)
+       .bss : 0xc04ec2c0 - 0xc0539370   ( 309 kB)
+NR_IRQS:256
+sched_clock: 32 bits at 100 Hz, resolution 10000000ns, wraps every 4294967286ms
+Console: colour dummy device 80x30
+Calibrating delay loop... 933.06 BogoMIPS (lpj=4665344)
+pid_max: default: 32768 minimum: 301
+Security Framework initialized
+SELinux:  Initializing.
+Mount-cache hash table entries: 512
+Initializing cgroup subsys debug
+Initializing cgroup subsys cpuacct
+Initializing cgroup subsys freezer
+CPU: Testing write buffer coherency: ok
+Setting up static identity map for 0x364ad0 - 0x364b28
+VFP support v0.3: implementor 41 architecture 3 part 30 variant c rev 0
+NET: Registered protocol family 16
+bio: create slab <bio-0> at 0
+Switching to clocksource goldfish_timer
+NET: Registered protocol family 2
+IP route cache hash table entries: 32768 (order: 5, 131072 bytes)
+TCP established hash table entries: 131072 (order: 8, 1048576 bytes)
+TCP bind hash table entries: 65536 (order: 6, 262144 bytes)
+TCP: Hash tables configured (established 131072 bind 65536)
+TCP: reno registered
+UDP hash table entries: 512 (order: 1, 8192 bytes)
+UDP-Lite hash table entries: 512 (order: 1, 8192 bytes)
+NET: Registered protocol family 1
+RPC: Registered named UNIX socket transport module.
+RPC: Registered udp transport module.
+RPC: Registered tcp transport module.
+RPC: Registered tcp NFSv4.1 backchannel transport module.
+Trying to unpack rootfs image as initramfs...
+Freeing initrd memory: 868K
+goldfish_new_pdev goldfish_interrupt_controller at ff000000 irq -1
+goldfish_new_pdev goldfish_device_bus at ff001000 irq 1
+goldfish_new_pdev goldfish_timer at ff003000 irq 3
+goldfish_new_pdev goldfish_rtc at ff010000 irq 10
+goldfish_new_pdev goldfish_tty at ff002000 irq 4
+goldfish_new_pdev goldfish_tty at ff011000 irq 11
+goldfish_new_pdev goldfish_tty at ff012000 irq 12
+goldfish_new_pdev smc91x at ff013000 irq 13
+goldfish_new_pdev goldfish_fb at ff014000 irq 14
+goldfish_new_pdev goldfish_audio at ff004000 irq 15
+goldfish_new_pdev goldfish_mmc at ff005000 irq 16
+goldfish_new_pdev goldfish-battery at ff015000 irq 17
+goldfish_new_pdev goldfish_events at ff016000 irq 18
+goldfish_new_pdev goldfish_nand at ff017000 irq -1
+goldfish_new_pdev qemu_pipe at ff018000 irq 19
+goldfish_pdev_worker registered goldfish_interrupt_controller
+goldfish_pdev_worker registered goldfish_device_bus
+goldfish_pdev_worker registered goldfish_timer
+goldfish_pdev_worker registered goldfish_rtc
+goldfish_pdev_worker registered goldfish_tty
+goldfish_pdev_worker registered goldfish_tty
+goldfish_pdev_worker registered goldfish_tty
+goldfish_pdev_worker registered smc91x
+goldfish_pdev_worker registered goldfish_fb
+goldfish_pdev_worker registered goldfish_audio
+goldfish_pdev_worker registered goldfish_mmc
+goldfish_pdev_worker registered goldfish-battery
+goldfish_pdev_worker registered goldfish_events
+goldfish_pdev_worker registered goldfish_nand
+goldfish_pdev_worker registered qemu_pipe
+audit: initializing netlink socket (disabled)
+type=2000 audit(0.280:1): initialized
+highmem bounce pool size: 64 pages
+Installing knfsd (copyright (C) 1996 okir@monad.swb.de).
+fuse init (API version 7.18)
+msgmni has been set to 1459
+io scheduler noop registered
+io scheduler deadline registered
+io scheduler cfq registered (default)
+console [ttyS0] enabled
+brd: module loaded
+loop: module loaded
+nbd: registered device at major 43
+goldfish_audio_probe
+goldfish nand dev0: size 60000000, page 512, extra 0, erase 0
+goldfish nand dev1: size 22600000, page 512, extra 0, erase 0
+goldfish nand dev2: size 4200000, page 512, extra 0, erase 0
+tun: Universal TUN/TAP device driver, 1.6
+tun: (C) 1999-2004 Max Krasnyansky <maxk@qualcomm.com>
+smc91x.c: v1.1, sep 22 2004 by Nicolas Pitre <nico@fluxnic.net>
+eth0: SMC91C11xFD (rev 1) at fe013000 IRQ 13 [nowait]
+eth0: Ethernet addr: 52:54:00:12:34:56
+mousedev: PS/2 mouse device common for all mice
+*** events probe ***
+events_probe() addr=0xfe016000 irq=18
+events_probe() keymap=qwerty2
+input: qwerty2 as /devices/virtual/input/input0
+goldfish_rtc goldfish_rtc: rtc core: registered goldfish_rtc as rtc0
+device-mapper: uevent: version 1.0.3
+device-mapper: ioctl: 4.22.0-ioctl (2011-10-19) initialised: dm-devel@redhat.com
+ashmem: initialized
+Netfilter messages via NETLINK v0.30.
+nf_conntrack version 0.5.0 (15903 buckets, 63612 max)
+ctnetlink v0.93: registering with nfnetlink.
+NF_TPROXY: Transparent proxy support initialized, version 4.1.0
+NF_TPROXY: Copyright (c) 2006-2007 BalaBit IT Ltd.
+xt_time: kernel timezone is -0000
+ip_tables: (C) 2000-2006 Netfilter Core Team
+arp_tables: (C) 2002 David S. Miller
+TCP: cubic registered
+NET: Registered protocol family 10
+ip6_tables: (C) 2000-2006 Netfilter Core Team
+IPv6 over IPv4 tunneling driver
+NET: Registered protocol family 17
+NET: Registered protocol family 15
+8021q: 802.1Q VLAN Support v1.8
+goldfish_rtc goldfish_rtc: setting system clock to 2020-06-14 10:16:12 UTC (1592129772)
+Freeing init memory: 140K
+mmc0: new SD card at address e118
+init: init started!
+ mmcblk0:
+mc0:e118 SU02G 1.00 GiB 
+SELinux:  Android master kernel running Android M policy in compatibility mode.
+type=1403 audit(1592129772.590:2): policy loaded auid=4294967295 ses=4294967295
+type=1404 audit(1592129772.590:3): enforcing=1 old_enforcing=0 auid=4294967295 ses=4294967295
+init: (Initializing SELinux enforcing took 0.06s.)
+init: init second stage started!
+init: waitpid failed: No child processes
+init: (Loading properties from /default.prop took 0.00s.)
+init: (Parsing /init.environ.rc took 0.00s.)
+init: (Parsing /init.usb.rc took 0.00s.)
+init: (Parsing /init.goldfish.rc took 0.00s.)
+init: (Parsing /init.zygote32.rc took 0.00s.)
+init: (Parsing /init.trace.rc took 0.00s.)
+init: (Parsing /init.rc took 0.01s.)
+init: SELinux: Could not get canonical path /adb_keys restorecon: No such file or directory.
+init: Starting service 'ueventd'...
+init: Waiting for /dev/.coldboot_done...
+ueventd: ueventd started!
+ueventd: Coldboot took 0.33s.
+init: Waiting for /dev/.coldboot_done took 0.35s.
+init: /dev/hw_random not found
+init: write_file: Unable to open '/proc/sys/kernel/hung_task_timeout_secs': No such file or directory
+init: write_file: Unable to open '/proc/sys/kernel/sched_compat_yield': No such file or directory
+init: write_file: Unable to write to '/dev/cpuctl/cpu.shares': Invalid argument
+type=1400 audit(1592129773.130:4): avc:  denied  { module_request } for  pid=1 comm="init" kmod="cpuset" scontext=u:r:init:s0 tcontext=u:r:kernel:s0 tclass=system permissive=0
+init: write_file: Unable to open '/proc/sys/abi/swp': No such file or directory
+init: /dev/hw_random not found
+EXT4-fs (mtdblock0): mounted filesystem with ordered data mode. Opts: barrier=1
+fs_mgr: __mount(source=/dev/block/mtdblock0,target=/system,type=ext4)=0
+EXT4-fs (mtdblock1): recovery complete
+EXT4-fs (mtdblock1): mounted filesystem with ordered data mode. Opts: nomblk_io_submit,errors=remount-ro
+fs_mgr: check_fs(): mount(/dev/block/mtdblock1,/data,ext4)=0: Success
+fs_mgr: check_fs(): unmount(/data) succeeded
+fs_mgr: Running /system/bin/e2fsck on /dev/block/mtdblock1
+e2fsck: e2fsck 1.42.9 (28-Dec-2013)
+
+e2fsck: data: clean, 563/35200 files, 25078/140800 blocks
+
+EXT4-fs (mtdblock1): mounted filesystem with ordered data mode. Opts: barrier=1,nomblk_io_submit
+fs_mgr: __mount(source=/dev/block/mtdblock1,target=/data,type=ext4)=0
+EXT4-fs (mtdblock2): recovery complete
+EXT4-fs (mtdblock2): mounted filesystem with ordered data mode. Opts: nomblk_io_submit,errors=remount-ro
+fs_mgr: check_fs(): mount(/dev/block/mtdblock2,/cache,ext4)=0: Success
+fs_mgr: check_fs(): unmount(/cache) succeeded
+fs_mgr: Running /system/bin/e2fsck on /dev/block/mtdblock2
+e2fsck: e2fsck 1.42.9 (28-Dec-2013)
+
+e2fsck: /dev/block/mtdblock2: clean, 16/4224 files, 1308/16896 blocks
+
+EXT4-fs (mtdblock2): mounted filesystem with ordered data mode. Opts: (null)
+fs_mgr: __mount(source=/dev/block/mtdblock2,target=/cache,type=ext4)=0
+init: Starting service 'logd'...
+init: Starting service 'vold'...
+init: Not bootcharting.
+init: Starting service 'exec 0 (/system/bin/tzdatacheck)'...
+init: Service 'exec 0 (/system/bin/tzdatacheck)' (pid 69) exited with status 0
+init: property_set("ro.kernel.android.checkjni", "1") failed
+init: (Loading properties from /system/build.prop took 0.00s.)
+init: (Loading properties from /vendor/build.prop took 0.00s.)
+init: (Loading properties from /factory/factory.prop took 0.00s.)
+init: (Loading properties from /data/local.prop took 0.00s.)
+init: /recovery not specified in fstab
+init: Starting service 'logd-reinit'...
+init: Starting service 'healthd'...
+init: Starting service 'lmkd'...
+init: Starting service 'servicemanager'...
+init: Starting service 'surfaceflinger'...
+init: Starting service 'qemu-props'...
+init: property_set("ro.build.product", "generic") failed
+init: property_set("ro.product.device", "generic") failed
+init: Starting service 'qemud'...
+binder: 71:71 transaction failed 29189, size 0-0
+init: Starting service 'goldfish-logcat'...
+init: Starting service 'goldfish-setup'...
+init: Starting service 'console'...
+init: Starting service 'adbd'...
+init: Starting service 'netd'...
+init: Starting service 'debuggerd'...
+init: cannot find '/system/bin/debuggerd64', disabling 'debuggerd64'
+init: Starting service 'ril-daemon'...
+init: Starting service 'drm'...
+init: Starting service 'media'...
+init: Starting service 'installd'...
+init: cannot find '/system/bin/install-recovery.sh', disabling 'flash_recovery'
+init: Starting service 'keystore'...
+init: Starting service 'zygote'...
+logd.auditd: start
+logd.klogd: 2781843436
+init: Starting service 'gatekeeperd'...
+init: Starting service 'perfprofd'...
+init: Starting service 'fingerprintd'...
+init: write_file: Unable to open '/sys/class/android_usb/android0/enable': No such file or directory
+init: write_file: Unable to open '/sys/class/android_usb/android0/idVendor': No such file or directory
+init: Service 'goldfish-logcat' (pid 78) exited with status 0
+init: write_file: Unable to open '/sys/class/android_usb/android0/idProduct': No such file or directory
+init: write_file: Unable to open '/sys/class/android_usb/android0/functions': No such file or directory
+healthd: BatteryVoltagePath not found
+healthd: BatteryTemperaturePath not found
+ch file or directory
+init: Service 'qemu-props' (pid 75) exited with status 0
+init: Service 'logd-reinit' (pid 70) exited with status 194
+eth0: link up
+shell@generic:/ $ init: Starting service 'bootanim'...
+init: Service 'goldfish-setup' (pid 79) exited with status 0
+logd.daemon: reinit
+[NEW_OOM] limit set: uid=10070, mm_max=16384
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16783, mm_max=16384, pid=196, pRSS=16555
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17209, mm_max=16384, pid=202, pRSS=16981
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17552, mm_max=16384, pid=208, pRSS=17324
+[NEW_OOM] trigger: by timer
+warning: `main' uses 32-bit capabilities (legacy support in use)
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16868, mm_max=16384, pid=213, pRSS=16640
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17922, mm_max=16384, pid=219, pRSS=17694
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16856, mm_max=16384, pid=224, pRSS=16628
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17675, mm_max=16384, pid=229, pRSS=17447
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16895, mm_max=16384, pid=234, pRSS=16667
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16610, mm_max=16384, pid=239, pRSS=16382
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16806, mm_max=16384, pid=244, pRSS=16578
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=32768
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34419, mm_max=32768, pid=272, pRSS=34191
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=32776, mm_max=32768, pid=300, pRSS=32548
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=32904, mm_max=32768, pid=315, pRSS=32676
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33597, mm_max=32768, pid=327, pRSS=33369
+[NEW_OOM] trigger: by timer
+healthd: battery l=50 v=0 t=0.0 h=2 st=2 chg=a
+healthd: battery l=50 v=0 t=0.0 h=2 st=2 chg=a
+lowmemorykiller: lowmem_shrink: convert oom_adj to oom_score_adj:
+lowmemorykiller: oom_adj 0 => oom_score_adj 0
+lowmemorykiller: oom_adj 1 => oom_score_adj 58
+lowmemorykiller: oom_adj 2 => oom_score_adj 117
+lowmemorykiller: oom_adj 3 => oom_score_adj 176
+lowmemorykiller: oom_adj 9 => oom_score_adj 529
+lowmemorykiller: oom_adj 15 => oom_score_adj 1000
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34038, mm_max=32768, pid=338, pRSS=33810
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=32803, mm_max=32768, pid=359, pRSS=32575
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34446, mm_max=32768, pid=369, pRSS=34218
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35559, mm_max=32768, pid=379, pRSS=35331
+[NEW_OOM] trigger: by timer
+type=1400 audit(1592129846.290:5): avc: denied { module_request } for pid=390 comm="iptables" kmod="ipt_TCPMSS" scontext=u:r:netd:s0 tcontext=u:r:kernel:s0 tclass=system permissive=0
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34227, mm_max=32768, pid=389, pRSS=33999
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35475, mm_max=32768, pid=398, pRSS=35247
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=16384
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=18217, mm_max=16384, pid=418, pRSS=5355
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17517, mm_max=16384, pid=420, pRSS=6399
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17586, mm_max=16384, pid=419, pRSS=9685
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=18159, mm_max=16384, pid=421, pRSS=17931
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=16384
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=19313, mm_max=16384, pid=438, pRSS=6052
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17137, mm_max=16384, pid=440, pRSS=6183
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17613, mm_max=16384, pid=439, pRSS=8823
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=16930, mm_max=16384, pid=437, pRSS=16702
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=16384
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17721, mm_max=16384, pid=456, pRSS=4770
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17106, mm_max=16384, pid=457, pRSS=6203
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=18750, mm_max=16384, pid=458, pRSS=9714
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=18322, mm_max=16384, pid=455, pRSS=18094
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=16384
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=19128, mm_max=16384, pid=481, pRSS=5126
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=19234, mm_max=16384, pid=478, pRSS=6694
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=20285, mm_max=16384, pid=479, pRSS=10720
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=18246, mm_max=16384, pid=480, pRSS=18018
+[NEW_OOM] trigger: by timer
+type=1400 audit(1592129866.650:6): avc: denied { module_request } for pid=82 comm="netd" kmod="netdev-dummy0" scontext=u:r:netd:s0 tcontext=u:r:kernel:s0 tclass=system permissive=0
+[NEW_OOM] limit set: uid=10070, mm_max=16384
+type=1400 audit(1592129866.660:7): avc: denied { sys_module } for pid=82 comm="netd" capability=16 scontext=u:r:netd:s0 tcontext=u:r:netd:s0 tclass=capability permissive=0
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=20662, mm_max=16384, pid=505, pRSS=6076
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=19097, mm_max=16384, pid=506, pRSS=6948
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=20119, mm_max=16384, pid=507, pRSS=10523
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=17756, mm_max=16384, pid=508, pRSS=17528
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=32768
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35457, mm_max=32768, pid=533, pRSS=9351
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35026, mm_max=32768, pid=531, pRSS=12191
+[NEW_OOM] trigger: by timer
+type=1400 audit(1592129872.110:8): avc: denied { write } for pid=535 comm="fingerprintd" name="/" dev="mtdblock1" ino=2 scontext=u:r:fingerprintd:s0 tcontext=u:object_r:system_data_file:s0 tclass=dir permissive=0
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35549, mm_max=32768, pid=530, pRSS=18151
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33555, mm_max=32768, pid=532, pRSS=33327
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=32768
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34674, mm_max=32768, pid=667, pRSS=9424
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34919, mm_max=32768, pid=666, pRSS=11730
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35880, mm_max=32768, pid=668, pRSS=18372
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33119, mm_max=32768, pid=669, pRSS=32891
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=32768
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=36020, mm_max=32768, pid=705, pRSS=9879
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34001, mm_max=32768, pid=704, pRSS=11876
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=35400, mm_max=32768, pid=703, pRSS=17852
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=32904, mm_max=32768, pid=706, pRSS=32676
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=32768
+healthd: battery l=50 v=0 t=0.0 h=2 st=2 chg=a
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34570, mm_max=32768, pid=729, pRSS=9360
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=37572, mm_max=32768, pid=730, pRSS=13005
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33591, mm_max=32768, pid=731, pRSS=16694
+[NEW_OOM] trigger: by timer
+QEMU Pipe Device:rw, wait_event error
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=32855, mm_max=32768, pid=728, pRSS=32627
+[NEW_OOM] trigger: by timer
+[NEW_OOM] limit set: uid=10070, mm_max=32768
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33567, mm_max=32768, pid=753, pRSS=9246
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=34293, mm_max=32768, pid=755, pRSS=11512
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33339, mm_max=32768, pid=752, pRSS=17471
+[NEW_OOM] trigger: by timer
+[NEW_OOM] killed: comm=benchmark, uid=10070, uRSS=33752, mm_max=32768, pid=754, pRSS=33524
+[NEW_OOM] trigger: by timer
+QEMU Pipe Device:rw, wait_event error

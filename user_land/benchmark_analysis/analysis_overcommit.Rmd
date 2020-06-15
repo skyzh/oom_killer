@@ -1,0 +1,44 @@
+---
+title: "analysis"
+output: html_document
+---
+---
+title: "analysis"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+data = read.csv("result_overcommit.csv")
+data$Type = factor(data$Type, levels=c("Trivial", "Timer", "New OOM Killer"))
+data$Case = factor(data$Case, levels=c("1 Proc 64 MB", "1 Proc 128 MB", "4 Proc 64 MB", "4 Proc 128 MB"))
+data$Overcommit = data$RSS - data$Limit - 1
+data
+```
+
+```{r}
+position_parameter = position_jitterdodge(
+    jitter.width = NULL,
+    jitter.height = 0,
+    dodge.width = 0.75,
+    seed = NA
+  )
+
+ggplot(data, aes(x=Case, y=Overcommit, fill=Type)) + 
+  geom_boxplot(outlier.size = 0) +
+  geom_point(pch = 21, position = position_jitterdodge()) +
+  ggtitle("Over-commit Pages") +
+  labs(y = "Over-commit (Pages)", x = "Test Case") +
+  theme_minimal() +
+  theme(plot.margin = unit(c(0,0,0,0), "cm")) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_fill_brewer(palette="Blues")
+ggsave('overcommit-proc-1.pdf', width=8, height=6)
+```

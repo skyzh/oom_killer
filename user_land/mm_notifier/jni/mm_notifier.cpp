@@ -8,10 +8,13 @@
 #include <unistd.h>
 #include <string.h>
 #include <unistd.h>
+#include <thread>
 
 #include "../../common.h"
 
 using namespace std;
+
+const bool AGGRESSIVE = true;
 
 const int BUFFER_SIZE = 1024;
 unordered_map<int, int> pid_to_user;
@@ -124,10 +127,16 @@ int main() {
             pid_to_user.clear();
             stat();
         }
+        
         if (++oom_count > 10) {
             oom_count = 0;
-            if (trigger > 0)
-                run_oom_killer();
+            if (trigger > 0) {
+                if (AGGRESSIVE) {
+                    std::thread (run_oom_killer).detach();
+                } else {
+                    run_oom_killer();
+                }
+            }
         }
     }
     fclose(pipe_file);
