@@ -21,7 +21,7 @@ set_limit: push_mm_set_limit
 
 test: set_limit push_project2_test
 	@echo -e "$(TESTCASE_COLOR)running project2 test...$(NO_COLOR)"
-	@adb shell "su 10070 $(INSTALL_PATH)/project2_test u0_a70 100000000 160000000"
+	@adb shell "su 10070 $(INSTALL_PATH)/project2_test u0_a70 100000000 160000000 160000000 160000000 160000000 160000000"
 
 get_limit: push_mm_get_limit
 	@echo -e "$(TESTCASE_COLOR)running mm_get_limit...$(NO_COLOR)"
@@ -51,6 +51,7 @@ check_notifier:
 benchmark_overcommit: push_benchmark push_mm_set_limit
 	@echo -e "$(TESTCASE_COLOR)running benchmark...$(NO_COLOR)"
 	@rm benchmark/out/*.out; true
+	adb shell "echo 2 > /proc/sys/vm/overcommit_memory"
 	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 16384"
 	adb shell "cd $(INSTALL_PATH) && su 10070 ./benchmark 1 200000000 10"
 	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 32768"
