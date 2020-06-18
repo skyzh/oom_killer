@@ -5,7 +5,7 @@
 First of all, you need to patch the original kernel. Here I provide 2 ways.
 
 1. Use `kernel_space/patch.diff`. Apply it on goldfish-3.4 from AOSP project.
-2. Copy all files from `kernel_space/dirty/`. They are kept to have the same structure as in Linux kernel.
+2. Copy all files from `kernel_space/archive.zip`. They are kept to have the same structure as in Linux kernel.
 
 Then, you may build and run the kernel. After the emulator is boot with new kernel, use Makefile in user_land to run tests.
 
@@ -21,7 +21,7 @@ This will automatically build test program, push it to `/data/local`, and run it
 ```
 .
 ├── kernel_space                files modified in Linux Kernel
-│   ├── dirty                   all modified files in original folder structure
+│   ├── archive.zip             all modified files in original folder structure
 │   ├── patch.diff              patch file, should be applied on git repo
 │   └── patch.sh                script used to generate patch file
 └── user_land
