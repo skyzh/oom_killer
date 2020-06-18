@@ -53,10 +53,10 @@ index d01eb013..651d59bf 100644
  #ifndef syscalls_counted
  .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
 diff --git a/arch/arm/kernel/sys_arm.c b/arch/arm/kernel/sys_arm.c
-index 76cbb055..bac6a416 100644
+index 76cbb055..e462b0d7 100644
 --- a/arch/arm/kernel/sys_arm.c
 +++ b/arch/arm/kernel/sys_arm.c
-@@ -131,3 +131,367 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
+@@ -131,3 +131,468 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
  {
  	return sys_fadvise64_64(fd, offset, len, advice);
  }
@@ -65,13 +65,13 @@ index 76cbb055..bac6a416 100644
 +
 +#include <linux/hashtable.h>
 +
-+/*
-+ * mm_limit_struct saves limit information for each user
-+ * alloc_pages: how many pages are allocated to this user for now
-+ * alloc_pages_ticket: used to identify if alloc_pages is latest
-+ * alloc_pages_limit: page limit set by user
-+ * uid: userID to limit
-+ * hash: used to implement hash table
++/**
++ * mm_limit_struct - saves limit information for each user
++ * @alloc_pages: how many pages are allocated to this user for now
++ * @alloc_pages_ticket: used to identify if alloc_pages is latest
++ * @alloc_pages_limit: page limit set by user
++ * @uid: userID to limit
++ * @hash: used to implement hash table
 + */
 +struct mm_limit_struct {
 +	int alloc_pages;
@@ -85,17 +85,51 @@ index 76cbb055..bac6a416 100644
 +// define a hashtable to store uid-limit mapping
 +DEFINE_HASHTABLE(mm_limit_struct_hash, 7);
 +
++/**
++ * malloc_transaction_struct - saves malloc transaction for each process
++ * @reserved_pages: page reserved for a process
++ * @pid: pid of current process
++ * @hash: used to implement hash table
++ */
 +struct malloc_transaction_struct {
 +	atomic_t reserved_pages;
 +	pid_t pid;
 +	struct hlist_node hash;
 +};
 +
++// define a hashtable to store pid-malloc mapping
 +DEFINE_HASHTABLE(malloc_transaction_struct_hash, 7);
++
++// OOM killer related functions
++static struct mm_limit_struct *get_mm_limit(uid_t uid);
++static long set_mm_limit(uid_t uid, unsigned long mm_max);
++static int process_task(struct task_struct *task, int ticket);
++static unsigned long process_badness(struct task_struct *task);
++static int process_kill(struct task_struct *task, unsigned long badness);
++static long process_user(int ticket);
++static struct task_struct* select_victim(int ticket, long *__max_badness);
++static int mm_kill(int ticket);
++static void mm_hook(int trigger);
++
++// timer triggers
++static void mm_hook_trigger(unsigned long x);
++static void mm_hook_interval(unsigned long x);
++void mm_trigger_hook(void);
++void mm_trigger_interval(void);
++void mm_trigger_init(void);
++
++// malloc transction related functions
++struct malloc_transaction_struct* get_malloc_transction(pid_t pid);
++struct malloc_transaction_struct *add_malloc_transaction(pid_t pid);
++struct task_struct *try_select_victim(void);
 +
 +struct malloc_transaction_struct* get_malloc_transction(pid_t pid);
 +
-+// get_mm_limit gets mm_limit struct of a user
++/** 
++  * get_mm_limit - gets mm_limit struct of a user
++  * @uid: user id
++  * @returns: mm_limit_struct if found, NULL otherwise
++*/
 +static struct mm_limit_struct *get_mm_limit(uid_t uid) {
 +	struct mm_limit_struct *m;
 +	struct hlist_node *node;
@@ -108,8 +142,11 @@ index 76cbb055..bac6a416 100644
 +	return NULL;
 +}
 +
-+/*
-+ * set_mm_limit sets mm_limit of a user
++/**
++ * set_mm_limit - sets mm_limit of a user
++ *
++ * @uid: user id
++ * @mm_max: maximum memory allocation (in pages)
 + * memory allocation will occur in this function, so
 + * this function can't be called in alloc_pages code path
 + */
@@ -130,8 +167,11 @@ index 76cbb055..bac6a416 100644
 +	return 0;
 +}
 +
-+/*
-+ * process task adds one task RSS information into mm_limit_structs
++/**
++ * process task - adds one task RSS information into mm_limit_structs
++ * @task: the task to be processed
++ * @ticket: ticket of current call
++ * 
 + * If ticket in struct is the same as ticket, we have accessed that mm_limit
 + * in one OOM-killer round. Otherwise, set alloc_pages to zero and sum up again.
 + */
@@ -175,8 +215,10 @@ index 76cbb055..bac6a416 100644
 +	return result;
 +}
 +
-+/*
-+ * process_badness gets badness value of a task.
++/**
++ * process_badness - gets badness value of a task.
++ * @task: task to be processed
++ *
 + * Larger value means more badness. Now this is simply set to be RSS of
 + * a task.
 + */
@@ -189,10 +231,11 @@ index 76cbb055..bac6a416 100644
 +	return mm_rss;
 +}
 +
-+/*
++/**
 + * process_kill kills an evil process, and set the thread flag to
 + * "TIF_MEMDIE". In this way, it won't be killed again.
-+ * Returns 0 if successfully killed a process.
++ * @task: task to be killed
++ * @returns: 0 if successfully killed a process.
 + */
 +static int process_kill(struct task_struct *task, unsigned long badness) {
 +	if (!test_tsk_thread_flag(task, TIF_MEMDIE)) {
@@ -203,8 +246,10 @@ index 76cbb055..bac6a416 100644
 +	return 1;
 +}
 +
-+/*
-+ * process_user finds a user that exceeds the limit.
++/**
++ * process_user - finds a user that exceeds the limit.
++ * @ticket: ticket of current run
++ * @returns: uid if found, otherwise -1
 + */
 +static long process_user(int ticket) {
 +	struct task_struct *p;
@@ -218,6 +263,11 @@ index 76cbb055..bac6a416 100644
 +	return uid_result;
 +}
 +
++/**
++ * select_victim - finds a task to kill
++ * @ticket: ticket of current run
++ * @__max_badness: will be set to badness of this task
++ */
 +static struct task_struct* select_victim(int ticket, long *__max_badness) {
 +	long uid;
 +	struct task_struct *p;
@@ -241,11 +291,12 @@ index 76cbb055..bac6a416 100644
 +	return victim;
 +}
 +
-+/*
++/**
 + * mm_kill is the main function of the new OOM killer.
 + * It scans the process list, finds user exceeding the limit, and
 + * kills one process of that user.
-+ * Returns 1 if any process is killed.
++ * @ticket: ticket of current run
++ * @returns: 1 if any process is killed.
 + */
 +static int mm_kill(int ticket)
 +{
@@ -261,7 +312,7 @@ index 76cbb055..bac6a416 100644
 +		uid = victim->cred->uid;
 +		m = get_mm_limit(uid);
 +		if (m && (result = !process_kill(victim, max_badness))) {
-+			printk(KERN_INFO "[NEW_OOM] killed: comm=%s, uid=%d, uRSS=%d, mm_max=%d, pid=%d, pRSS=%ld",
++			printk(KERN_INFO "[NEW_OOM] killed: comm=%s, uid=%d, uRSS=%d, mm_max=%d, pid=%d, pRSS=%ld (pages)",
 +				victim->comm,
 +				victim->cred->uid,
 +				m->alloc_pages,
@@ -286,6 +337,10 @@ index 76cbb055..bac6a416 100644
 +#define TRIGGERED_BY_SYSCALL	2
 +#define TRIGGERED_BY_OOM	3
 +
++/**
++ * mm_hook - call mm_kill and print out result
++ * @trigger: trigger id defined above
++ */
 +static void mm_hook(int trigger) {
 +	int result = 0;
 +	
@@ -306,32 +361,48 @@ index 76cbb055..bac6a416 100644
 +	}
 +}
 +
++/**
++ * mm_hook_trigger - triggered by immediate timer
++ */
 +static void mm_hook_trigger(unsigned long x) {
 +	mm_hook(TRIGGERED_BY_OOM);
 +}
 +
-+void mm_trigger_interval(void);
-+
++/**
++ * mm_hook_interval - triggered by interval timer
++ */
 +static void mm_hook_interval(unsigned long x) {
 +	mm_hook(TRIGGERED_BY_TIMER);
 +	mm_trigger_interval();
 +}
 +
++/**
++ * mm_trigger_interval - schedule a timer 200ms later
++ */
 +void mm_trigger_interval(void) {
 +  	mod_timer(&timer_interval, jiffies + msecs_to_jiffies(200));
 +}
 +
++/**
++ * mm_trigger_hook - schedule a immediate timer
++ */
 +void mm_trigger_hook(void) {
 +	if (atomic_read(&oom_enabled) == 1)
 +		mm_hook_trigger(0);
 +  		// mod_timer(&timer_trigger, jiffies + msecs_to_jiffies(1));
 +}
 +
++/**
++ * mm_trigger_init - initialize two timers
++ */
 +void mm_trigger_init(void) {
 +	setup_timer(&timer_interval, mm_hook_interval, 0);
 +	setup_timer(&timer_trigger, mm_hook_trigger, 0);
 +}
 +
++/**
++ * sys_set_mm_limit - set mm limit syscall
++ */
 +asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max)
 +{
 +	if (atomic_xchg(&oom_enabled, 1) == 0) {
@@ -343,6 +414,9 @@ index 76cbb055..bac6a416 100644
 +	return 0;
 +}
 +
++/**
++ * sys_get_mm_limit - get mm limit syscall
++ */
 +asmlinkage long sys_get_mm_limit(uid_t *uid, unsigned long *mm_max, 
 +				 unsigned int max_element) {
 +	unsigned bkt;
@@ -360,11 +434,19 @@ index 76cbb055..bac6a416 100644
 +	return i;
 +}
 +
++/**
++ * sys_run_oom_killer - run oom killer syscall
++ */
 +asmlinkage long sys_run_oom_killer(void) {
 +	mm_hook(TRIGGERED_BY_SYSCALL);
 +	return 0;
 +}
 +
++/**
++ * get_malloc_transction - get malloc transaction struct of pid
++ * @pid: process id
++ * @returns: malloc_transaction_struct struct if found, otherwise NULL
++ */
 +struct malloc_transaction_struct* get_malloc_transction(pid_t pid) {
 +	struct malloc_transaction_struct *m;
 +	struct hlist_node *node;
@@ -377,6 +459,12 @@ index 76cbb055..bac6a416 100644
 +	return NULL;
 +}
 +
++/**
++ * add_malloc_transction - get malloc transaction struct of pid, if not yet created,
++ * create one
++ * @pid: process id
++ * @returns: malloc_transaction_struct
++ */
 +struct malloc_transaction_struct *add_malloc_transaction(pid_t pid) {
 +	struct malloc_transaction_struct *m = get_malloc_transction(pid);
 +	if (m) return m;
@@ -388,11 +476,21 @@ index 76cbb055..bac6a416 100644
 +	return m;
 +}
 +
++/**
++ * try_select_victim - returns a victim of new OOM killer
++ */
++struct task_struct *try_select_victim() {
++	long max_badness = 0;
++	return select_victim(atomic_inc_return(&timer_ticket), &max_badness);
++}
++
++/**
++ * sys_malloc_transaction - run malloc transaction syscall
++ */
 +asmlinkage long sys_malloc_transaction(unsigned long mm_transaction) {
 +	pid_t pid; 
 +	const struct cred *cred;
 +	struct malloc_transaction_struct *t;
-+	long max_badness = 0;
 +	struct mm_limit_struct *m;
 +	
 +	cred = current_cred();
@@ -404,7 +502,7 @@ index 76cbb055..bac6a416 100644
 +
 +	t = add_malloc_transaction(pid);
 +	atomic_add(mm_transaction, &t->reserved_pages);
-+	select_victim(atomic_inc_return(&timer_ticket), &max_badness);
++	try_select_victim();
 +
 +	if (m->alloc_pages + m->alloc_reserved > atomic_read(&m->alloc_pages_limit)) {
 +		// rollback changes
@@ -415,6 +513,9 @@ index 76cbb055..bac6a416 100644
 +	return 0;
 +}
 +
++/**
++ * sys_malloc_commit - run malloc commit syscall
++ */
 +asmlinkage long sys_malloc_commit(unsigned long mm_transaction) {
 +	pid_t pid = pid_nr(get_task_pid(current, PIDTYPE_PID));
 +	struct malloc_transaction_struct *t = add_malloc_transaction(pid);
@@ -554,6 +655,30 @@ index 17d8661f..021b7021 100644
  
  #if defined(SPLIT_RSS_COUNTING)
  
+diff --git a/mm/oom_kill.c b/mm/oom_kill.c
+index 597ecac5..340d02f1 100644
+--- a/mm/oom_kill.c
++++ b/mm/oom_kill.c
+@@ -683,6 +683,8 @@ static void clear_system_oom(void)
+ 	spin_unlock(&zone_scan_lock);
+ }
+ 
++struct task_struct* try_select_victim(void);
++
+ /**
+  * out_of_memory - kill the "best" process when we run out of memory
+  * @zonelist: zonelist pointer
+@@ -741,7 +743,9 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
+ 		goto out;
+ 	}
+ 
+-	p = select_bad_process(&points, totalpages, NULL, mpol_mask,
++	p = try_select_victim();
++
++	if (!p) p = select_bad_process(&points, totalpages, NULL, mpol_mask,
+ 			       force_kill);
+ 	/* Found nothing?!?! Either we hang forever, or we panic. */
+ 	if (!p) {
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
 index 783700b5..7ea3c688 100644
 --- a/mm/page_alloc.c
