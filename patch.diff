@@ -16,13 +16,15 @@ index 9f440dd8..bda521d0 100644
  # Architecture as present in compile.h
  UTS_MACHINE 	:= $(ARCH)
 diff --git a/arch/arm/include/asm/unistd.h b/arch/arm/include/asm/unistd.h
-index 6ef9635a..12960673 100644
+index 6ef9635a..7381ec06 100644
 --- a/arch/arm/include/asm/unistd.h
 +++ b/arch/arm/include/asm/unistd.h
-@@ -404,6 +404,9 @@
+@@ -404,6 +404,11 @@
  #define __NR_setns			(__NR_SYSCALL_BASE+375)
  #define __NR_process_vm_readv		(__NR_SYSCALL_BASE+376)
  #define __NR_process_vm_writev		(__NR_SYSCALL_BASE+377)
++#define __NR_malloc_transaction		(__NR_SYSCALL_BASE+378)
++#define __NR_malloc_commit		(__NR_SYSCALL_BASE+379)
 +#define __NR_set_mm_limit		(__NR_SYSCALL_BASE+380)
 +#define __NR_get_mm_limit		(__NR_SYSCALL_BASE+381)
 +#define __NR_run_oom_killer		(__NR_SYSCALL_BASE+382)
@@ -30,16 +32,20 @@ index 6ef9635a..12960673 100644
  
  /*
 diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
-index d01eb013..fc06d516 100644
+index d01eb013..651d59bf 100644
 --- a/arch/arm/kernel/calls.S
 +++ b/arch/arm/kernel/calls.S
-@@ -389,9 +389,9 @@
+@@ -387,11 +387,11 @@
+ /* 375 */	CALL(sys_setns)
+ 		CALL(sys_process_vm_readv)
  		CALL(sys_process_vm_writev)
- 		CALL(sys_ni_syscall)
- 		CALL(sys_ni_syscall)
+-		CALL(sys_ni_syscall)
+-		CALL(sys_ni_syscall)
 -/* 380 */	CALL(sys_ni_syscall)
 -		CALL(sys_ni_syscall)
 -		CALL(sys_ni_syscall)
++		CALL(sys_malloc_transaction)
++		CALL(sys_malloc_commit)
 +/* 380 */	CALL(sys_set_mm_limit)
 +		CALL(sys_get_mm_limit)
 +		CALL(sys_run_oom_killer)
@@ -47,10 +53,10 @@ index d01eb013..fc06d516 100644
  #ifndef syscalls_counted
  .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
 diff --git a/arch/arm/kernel/sys_arm.c b/arch/arm/kernel/sys_arm.c
-index 76cbb055..132d4f9b 100644
+index 76cbb055..bac6a416 100644
 --- a/arch/arm/kernel/sys_arm.c
 +++ b/arch/arm/kernel/sys_arm.c
-@@ -131,3 +131,223 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
+@@ -131,3 +131,367 @@ asmlinkage long sys_arm_fadvise64_64(int fd, int advice,
  {
  	return sys_fadvise64_64(fd, offset, len, advice);
  }
@@ -59,16 +65,37 @@ index 76cbb055..132d4f9b 100644
 +
 +#include <linux/hashtable.h>
 +
++/*
++ * mm_limit_struct saves limit information for each user
++ * alloc_pages: how many pages are allocated to this user for now
++ * alloc_pages_ticket: used to identify if alloc_pages is latest
++ * alloc_pages_limit: page limit set by user
++ * uid: userID to limit
++ * hash: used to implement hash table
++ */
 +struct mm_limit_struct {
 +	int alloc_pages;
++	int alloc_reserved;
 +	int alloc_pages_ticket;
 +	atomic_t alloc_pages_limit;
 +	uid_t uid;
 +	struct hlist_node hash;
 +};
 +
-+DEFINE_HASHTABLE(mm_limit_struct_hash, 8);
++// define a hashtable to store uid-limit mapping
++DEFINE_HASHTABLE(mm_limit_struct_hash, 7);
 +
++struct malloc_transaction_struct {
++	atomic_t reserved_pages;
++	pid_t pid;
++	struct hlist_node hash;
++};
++
++DEFINE_HASHTABLE(malloc_transaction_struct_hash, 7);
++
++struct malloc_transaction_struct* get_malloc_transction(pid_t pid);
++
++// get_mm_limit gets mm_limit struct of a user
 +static struct mm_limit_struct *get_mm_limit(uid_t uid) {
 +	struct mm_limit_struct *m;
 +	struct hlist_node *node;
@@ -81,12 +108,19 @@ index 76cbb055..132d4f9b 100644
 +	return NULL;
 +}
 +
++/*
++ * set_mm_limit sets mm_limit of a user
++ * memory allocation will occur in this function, so
++ * this function can't be called in alloc_pages code path
++ */
 +static long set_mm_limit(uid_t uid, unsigned long mm_max) {
 +	struct mm_limit_struct *m = get_mm_limit(uid);
++	// struct already exists, limit has been set prior
 +	if (m) {
 +		atomic_set(&m->alloc_pages_limit, mm_max);
 +		return 0;
 +	}
++	// struct not exists, allocate new memory for the hashtable node
 +	m = kmalloc(sizeof(struct mm_limit_struct), GFP_KERNEL);
 +	m->alloc_pages = 0;
 +	m->alloc_pages_ticket = 0;
@@ -96,9 +130,15 @@ index 76cbb055..132d4f9b 100644
 +	return 0;
 +}
 +
++/*
++ * process task adds one task RSS information into mm_limit_structs
++ * If ticket in struct is the same as ticket, we have accessed that mm_limit
++ * in one OOM-killer round. Otherwise, set alloc_pages to zero and sum up again.
++ */
 +static int process_task(struct task_struct *task, int ticket) {
 +	unsigned long mm_rss;
 +	struct mm_limit_struct *m;
++	struct malloc_transaction_struct *t;
 +	int result = -1;
 +
 +	task_lock(task);
@@ -116,11 +156,17 @@ index 76cbb055..132d4f9b 100644
 +			if (m->alloc_pages_ticket != ticket) {
 +				m->alloc_pages_ticket = ticket;
 +				m->alloc_pages = mm_rss;
++				m->alloc_reserved = 0;
 +			} else {
 +				m->alloc_pages += mm_rss;
 +			}
 +			if (m->alloc_pages > page_limit && page_limit != 0) {
 +				result = task->cred->uid;
++			}
++
++			t = get_malloc_transction(task->pid);
++			if (t) {
++				m->alloc_reserved += atomic_read(&t->reserved_pages);
 +			}
 +		}
 +	}
@@ -129,46 +175,54 @@ index 76cbb055..132d4f9b 100644
 +	return result;
 +}
 +
++/*
++ * process_badness gets badness value of a task.
++ * Larger value means more badness. Now this is simply set to be RSS of
++ * a task.
++ */
 +static unsigned long process_badness(struct task_struct *task) {
-+	unsigned long mm_rss;
++	unsigned long mm_rss = 0;
 +	task_lock(task);
-+	mm_rss = get_mm_rss(task->mm);
++	if (task->mm) mm_rss = get_mm_rss(task->mm);
 +	task_unlock(task);
 +
 +	return mm_rss;
 +}
 +
++/*
++ * process_kill kills an evil process, and set the thread flag to
++ * "TIF_MEMDIE". In this way, it won't be killed again.
++ * Returns 0 if successfully killed a process.
++ */
 +static int process_kill(struct task_struct *task, unsigned long badness) {
 +	if (!test_tsk_thread_flag(task, TIF_MEMDIE)) {
 +		send_sig(SIGKILL, task, 0);
 +		set_tsk_thread_flag(task, TIF_MEMDIE);
-+		printk(KERN_INFO "[NEW_OOM] %s killed badness=%ld\n", task->comm, badness);
 +		return 0;
 +	}
 +	return 1;
 +}
 +
++/*
++ * process_user finds a user that exceeds the limit.
++ */
 +static long process_user(int ticket) {
 +	struct task_struct *p;
-+	long uid;
++	long uid, uid_result = -1;
 +
 +	for_each_process(p) {
 +		uid = process_task(p, ticket);
-+		if (uid != -1) return uid;
++		if (uid != -1) uid_result = uid;
 +	}
 +
-+	return -1;
++	return uid_result;
 +}
 +
-+static int mm_kill(int ticket)
-+{
++static struct task_struct* select_victim(int ticket, long *__max_badness) {
 +	long uid;
 +	struct task_struct *p;
 +	struct task_struct *victim = NULL;
 +	long badness = 0, max_badness = 0;
-+	int result = 0;
-+
-+	read_lock(&tasklist_lock);
 +
 +	uid = process_user(ticket);
 +
@@ -182,8 +236,39 @@ index 76cbb055..132d4f9b 100644
 +		}
 +	}
 +
++	*__max_badness = max_badness;
++
++	return victim;
++}
++
++/*
++ * mm_kill is the main function of the new OOM killer.
++ * It scans the process list, finds user exceeding the limit, and
++ * kills one process of that user.
++ * Returns 1 if any process is killed.
++ */
++static int mm_kill(int ticket)
++{
++	int result = 0;
++	struct mm_limit_struct *m;
++	long max_badness = 0;
++	struct task_struct *victim = select_victim(ticket, &max_badness);
++	uid_t uid;
++
++	read_lock(&tasklist_lock);
++
 +	if (victim) {
-+		result = !process_kill(victim, max_badness);
++		uid = victim->cred->uid;
++		m = get_mm_limit(uid);
++		if (m && (result = !process_kill(victim, max_badness))) {
++			printk(KERN_INFO "[NEW_OOM] killed: comm=%s, uid=%d, uRSS=%d, mm_max=%d, pid=%d, pRSS=%ld",
++				victim->comm,
++				victim->cred->uid,
++				m->alloc_pages,
++				atomic_read(&m->alloc_pages_limit),
++				victim->pid,
++				max_badness);
++		}
 +	}
 +
 +	read_unlock(&tasklist_lock);
@@ -194,8 +279,8 @@ index 76cbb055..132d4f9b 100644
 +#include <linux/timer.h>
 +
 +static struct timer_list timer_trigger, timer_interval;
-+static int timer_ticket = 1;
-+atomic_t timer_enabled = ATOMIC_INIT(0);
++static atomic_t timer_ticket = ATOMIC_INIT(1);
++static atomic_t oom_enabled = ATOMIC_INIT(0);
 +
 +#define TRIGGERED_BY_TIMER	1
 +#define TRIGGERED_BY_SYSCALL	2
@@ -204,15 +289,18 @@ index 76cbb055..132d4f9b 100644
 +static void mm_hook(int trigger) {
 +	int result = 0;
 +	
-+	result = mm_kill(timer_ticket++);
++	result = mm_kill(atomic_inc_return(&timer_ticket));
 +	
 +	if (result) {
 +		switch(trigger) {
 +			case TRIGGERED_BY_SYSCALL:
-+				printk(KERN_INFO "[NEW_OOM] triggered by syscall\n");
++				printk(KERN_INFO "[NEW_OOM] trigger: by syscall\n");
 +				break;
 +			case TRIGGERED_BY_TIMER:
-+				printk(KERN_INFO "[NEW_OOM] triggered by timer\n");
++				printk(KERN_INFO "[NEW_OOM] trigger: by timer\n");
++				break;
++			case TRIGGERED_BY_OOM:
++				printk(KERN_INFO "[NEW_OOM] trigger: by alloc page code path\n");
 +				break;
 +		}
 +	}
@@ -234,7 +322,9 @@ index 76cbb055..132d4f9b 100644
 +}
 +
 +void mm_trigger_hook(void) {
-+  	mod_timer(&timer_trigger, jiffies);
++	if (atomic_read(&oom_enabled) == 1)
++		mm_hook_trigger(0);
++  		// mod_timer(&timer_trigger, jiffies + msecs_to_jiffies(1));
 +}
 +
 +void mm_trigger_init(void) {
@@ -244,10 +334,10 @@ index 76cbb055..132d4f9b 100644
 +
 +asmlinkage long sys_set_mm_limit(uid_t uid, unsigned long mm_max)
 +{
-+	if (atomic_xchg(&timer_enabled, 1) == 0) {
++	if (atomic_xchg(&oom_enabled, 1) == 0) {
 +		mm_trigger_interval();
 +	}
-+	printk(KERN_INFO "uid=%u, mm_max=%lu\n", uid, mm_max);
++	printk(KERN_INFO "[NEW_OOM] limit set: uid=%u, mm_max=%lu\n", uid, mm_max);
 +	if (set_mm_limit(uid, mm_max)) return -EFAULT;
 +	mm_trigger_hook();
 +	return 0;
@@ -272,6 +362,66 @@ index 76cbb055..132d4f9b 100644
 +
 +asmlinkage long sys_run_oom_killer(void) {
 +	mm_hook(TRIGGERED_BY_SYSCALL);
++	return 0;
++}
++
++struct malloc_transaction_struct* get_malloc_transction(pid_t pid) {
++	struct malloc_transaction_struct *m;
++	struct hlist_node *node;
++
++	hash_for_each_possible(malloc_transaction_struct_hash, m, node, hash, pid)
++	{
++		return m;
++	}
++	
++	return NULL;
++}
++
++struct malloc_transaction_struct *add_malloc_transaction(pid_t pid) {
++	struct malloc_transaction_struct *m = get_malloc_transction(pid);
++	if (m) return m;
++	// struct already exists, limit has been set prior
++	m = kmalloc(sizeof(struct malloc_transaction_struct), GFP_KERNEL);
++	atomic_set(&m->reserved_pages, 0);
++	m->pid = pid;
++	hash_add(malloc_transaction_struct_hash, &m->hash, pid);
++	return m;
++}
++
++asmlinkage long sys_malloc_transaction(unsigned long mm_transaction) {
++	pid_t pid; 
++	const struct cred *cred;
++	struct malloc_transaction_struct *t;
++	long max_badness = 0;
++	struct mm_limit_struct *m;
++	
++	cred = current_cred();
++	if (!cred) return -EFAULT;
++	m = get_mm_limit(cred->uid);
++	if (!m) return 0;
++	
++	pid = pid_nr(get_task_pid(current, PIDTYPE_PID));
++
++	t = add_malloc_transaction(pid);
++	atomic_add(mm_transaction, &t->reserved_pages);
++	select_victim(atomic_inc_return(&timer_ticket), &max_badness);
++
++	if (m->alloc_pages + m->alloc_reserved > atomic_read(&m->alloc_pages_limit)) {
++		// rollback changes
++		atomic_add(-mm_transaction, &t->reserved_pages);
++		return -EFAULT;
++	}
++	
++	return 0;
++}
++
++asmlinkage long sys_malloc_commit(unsigned long mm_transaction) {
++	pid_t pid = pid_nr(get_task_pid(current, PIDTYPE_PID));
++	struct malloc_transaction_struct *t = add_malloc_transaction(pid);
++	unsigned long pages = atomic_add_return(-mm_transaction, &t->reserved_pages);
++	if (pages < 0) {
++		atomic_set(&t->reserved_pages, 0);
++	}
 +	return 0;
 +}
 diff --git a/include/linux/mm.h b/include/linux/mm.h
@@ -307,10 +457,10 @@ index 54cf5695..3a3fc1f3 100644
  
  static inline unsigned long get_mm_rss(struct mm_struct *mm)
 diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index da352d5a..90796429 100644
+index da352d5a..297c7d46 100644
 --- a/include/linux/syscalls.h
 +++ b/include/linux/syscalls.h
-@@ -860,4 +860,12 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
+@@ -860,4 +860,16 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
  
  asmlinkage long sys_seccomp(unsigned int op, unsigned int flags,
  			    const char __user *uargs);
@@ -321,6 +471,10 @@ index da352d5a..90796429 100644
 +				 unsigned int max_element);
 +
 +asmlinkage long run_oom_killer(void);
++
++asmlinkage long sys_malloc_transaction(unsigned long mm_transaction);
++
++asmlinkage long sys_malloc_commit(unsigned long mm_transaction);
 +
  #endif
 diff --git a/include/trace/events/kmem.h b/include/trace/events/kmem.h
@@ -400,3 +554,25 @@ index 17d8661f..021b7021 100644
  
  #if defined(SPLIT_RSS_COUNTING)
  
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index 783700b5..7ea3c688 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -2238,6 +2238,8 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
+ 	return alloc_flags;
+ }
+ 
++void mm_trigger_hook(void);
++
+ static inline struct page *
+ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
+ 	struct zonelist *zonelist, enum zone_type high_zoneidx,
+@@ -2492,6 +2494,8 @@ out:
+ 	if (unlikely(!put_mems_allowed(cpuset_mems_cookie) && !page))
+ 		goto retry_cpuset;
+ 
++	// mm_trigger_hook();
++
+ 	return page;
+ }
+ EXPORT_SYMBOL(__alloc_pages_nodemask);
