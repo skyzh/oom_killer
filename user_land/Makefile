@@ -19,7 +19,7 @@ set_limit: push_mm_set_limit
 	@echo -e "$(TESTCASE_COLOR)running mm_set_limit...$(NO_COLOR)"
 	@adb shell "cd $(INSTALL_PATH) && ./mm_set_limit $(LIMIT)"
 
-test: set_limit push_project2_test
+test: push_project2_test
 	@echo -e "$(TESTCASE_COLOR)running project2 test...$(NO_COLOR)"
 	@adb shell "su 10070 $(INSTALL_PATH)/project2_test u0_a70 100000000 160000000 160000000 160000000 160000000 160000000"
 
@@ -36,7 +36,7 @@ notifier: push_mm_notifier
 	@echo -e "$(TESTCASE_COLOR)running mm_notifier...$(NO_COLOR)"
 	@adb shell "echo 1 > /sys/kernel/debug/tracing/events/kmem/rss_stat/enable"
 	@echo -e "$(TESTCASE_COLOR)event tracing enabled...$(NO_COLOR)"
-	@adb shell "(cd $(INSTALL_PATH) && nohup nice -n -20 ./mm_notifier) &"
+	@adb shell "cd $(INSTALL_PATH) && nohup nice -n -20 ./mm_notifier"
 	@echo -e "$(TESTCASE_COLOR)mm_notifier is running as background service$(NO_COLOR)"
 
 notifier_foreground: push_mm_notifier
@@ -99,6 +99,10 @@ benchmark_evaluation: push_benchmark
 	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 1048576 50" >> benchmark/out/result.out
 	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 4194304 20" >> benchmark/out/result.out
 	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 16777216 10" >> benchmark/out/result.out
+
+out_of_memory: push_benchmark
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 0"
+	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 1000000000 1"
 
 build_kernel:
 	make -C $(KID)

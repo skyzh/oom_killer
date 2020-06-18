@@ -3,7 +3,7 @@
 #include <string.h>
 #include "../../common.h"
 
-#define USE_TMALLOC
+// #define USE_TMALLOC
 #define ACQUIRE_SIZE 4096
 
 int main(int argc, char* argv[]) {
