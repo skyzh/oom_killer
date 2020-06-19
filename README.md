@@ -65,7 +65,7 @@ This will automatically build test program, push it to `/data/local`, and run it
     │   └── jni
     │       ├── Android.mk
     │       └── mm_set_limit.c
-    ├── project2_test           test program proviede by TA
+    ├── project2_test           test program provided by TA
     │   └── jni
     │       ├── Android.mk
     │       └── project2_test.c
