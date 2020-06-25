@@ -74,3 +74,13 @@ This will automatically build test program, push it to `/data/local`, and run it
         ├── enable_trace.sh
         └── test.cpp
 ```
+
+## Acknowledgement
+
+The design of this OOM killer is inspired by a lot of things. This includes:
+
+1.  Linux kernel documentation. In that, I find a lot of tools useful for tracing.
+2.  Linux community. Some un-merged patches inspired me of OOM design.
+3.  My classmates. When discussing about and solving problems they encountered, 
+    I also came up with some new ideas. Thanks Zefu Wang, Bugen Zhao, and Yimin Zhao
+    for their open-minded sharing.
