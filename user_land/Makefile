@@ -19,7 +19,11 @@ set_limit: push_mm_set_limit
 	@echo -e "$(TESTCASE_COLOR)running mm_set_limit...$(NO_COLOR)"
 	@adb shell "cd $(INSTALL_PATH) && ./mm_set_limit $(LIMIT)"
 
-test: push_project2_test
+cleanup_memory:
+	@echo -e "$(TESTCASE_COLOR)cleaning up memory...$(NO_COLOR)"
+	@adb shell "free && sync && echo 3 > /proc/sys/vm/drop_caches && free"
+
+test: push_project2_test cleanup_memory
 	@echo -e "$(TESTCASE_COLOR)running project2 test...$(NO_COLOR)"
 	@adb shell "su 10070 $(INSTALL_PATH)/project2_test u0_a70 100000000 160000000 160000000 160000000 160000000 160000000"
 
@@ -32,14 +36,14 @@ clean_%: FORCE
 
 clean: clean_mm_get_limit clean_mm_notifier clean_mm_set_limit clean_benchmark
 
-notifier: push_mm_notifier
+notifier_background: push_mm_notifier
 	@echo -e "$(TESTCASE_COLOR)running mm_notifier...$(NO_COLOR)"
 	@adb shell "echo 1 > /sys/kernel/debug/tracing/events/kmem/rss_stat/enable"
 	@echo -e "$(TESTCASE_COLOR)event tracing enabled...$(NO_COLOR)"
 	@adb shell "cd $(INSTALL_PATH) && nohup nice -n -20 ./mm_notifier"
 	@echo -e "$(TESTCASE_COLOR)mm_notifier is running as background service$(NO_COLOR)"
 
-notifier_foreground: push_mm_notifier
+notifier: push_mm_notifier
 	@echo -e "$(TESTCASE_COLOR)running mm_notifier...$(NO_COLOR)"
 	@adb shell "echo 1 > /sys/kernel/debug/tracing/events/kmem/rss_stat/enable"
 	@echo -e "$(TESTCASE_COLOR)event tracing enabled...$(NO_COLOR)"
@@ -51,7 +55,6 @@ check_notifier:
 benchmark_overcommit: push_benchmark push_mm_set_limit
 	@echo -e "$(TESTCASE_COLOR)running benchmark...$(NO_COLOR)"
 	@rm benchmark/out/*.out; true
-	adb shell "echo 2 > /proc/sys/vm/overcommit_memory"
 	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 16384"
 	adb shell "cd $(INSTALL_PATH) && su 10070 ./benchmark 1 200000000 10"
 	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 32768"
@@ -78,7 +81,7 @@ benchmark_overcommit: push_benchmark push_mm_set_limit
 	adb shell "cd $(INSTALL_PATH) && su 10070 ./benchmark 4 200000000 1"
 
 
-benchmark_evaluation: push_benchmark
+benchmark_evaluation: push_benchmark push_mm_set_limit
 	@echo -e "$(TESTCASE_COLOR)running benchmark...$(NO_COLOR)"
 	@rm benchmark/out/*.out; true
 	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 0"
@@ -100,9 +103,12 @@ benchmark_evaluation: push_benchmark
 	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 4194304 20" >> benchmark/out/result.out
 	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 8 16777216 10" >> benchmark/out/result.out
 
-out_of_memory: push_benchmark
-	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10070 0"
-	adb shell "cd $(INSTALL_PATH) && time su 10070 ./benchmark 1 1000000000 1"
+test_tmalloc: push_benchmark push_mm_set_limit cleanup_memory
+	@echo -e "$(TESTCASE_COLOR)running tmalloc test...$(NO_COLOR)"
+	adb shell "cd $(INSTALL_PATH) && ./mm_set_limit 10071 4096"
+	adb shell "cd $(INSTALL_PATH) && time su 10071 ./benchmark 1 1000000000 1"
+	adb shell "cd $(INSTALL_PATH) && time su 10071 ./benchmark 4 1000000000 1"
+	adb shell "cd $(INSTALL_PATH) && time su 10071 ./benchmark 8 1000000000 1"
 
 build_kernel:
 	make -C $(KID)

@@ -1,5 +1,5 @@
 inline long set_mm_limit(uid_t uid, unsigned long mm_max) {
-    return syscall(380, uid, mm_max);
+    return syscall(378, uid, mm_max << 12);
 }
 
 inline long get_mm_limit(uid_t *uid, unsigned long *mm_max, 
@@ -12,7 +12,7 @@ inline long run_oom_killer(void) {
 }
 
 inline long transaction_reserve(unsigned long mm_transaction) {
-    return syscall(378, mm_transaction);
+    return syscall(380, mm_transaction);
 }
 
 inline long transaction_commit(unsigned long mm_transaction) {
@@ -21,11 +21,11 @@ inline long transaction_commit(unsigned long mm_transaction) {
 
 inline void* tmalloc(size_t size) {
     void* space = NULL;
-    size_t commit_size = (size + 4095) << 12 + 10;
-    if (!transaction_reserve(commit_size)) {
+    size_t commit_size = ((size + 4095) >> 12) + 10;
+    if (transaction_reserve(commit_size)) {
         return NULL;
     }
     space = malloc(size);
-    transaction_commit(commit_size);
+    if (space) transaction_commit(commit_size);
     return space;
 }

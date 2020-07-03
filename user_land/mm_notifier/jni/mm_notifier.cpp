@@ -84,9 +84,10 @@ void check_allocation(int uid, long prev_allocation, long allocation) {
 }
 
 inline void process_event(int pid, const char* type, int member, long size) {
+    int transformed_pid = pid * 2 + member;
     if (strcmp(type, "rss_stat") == 0) {
-        long delta = size - pid_allocation[pid];
-        pid_allocation[pid] = size;
+        long delta = size - pid_allocation[transformed_pid];
+        pid_allocation[transformed_pid] = size;
         int uid = read_uid(pid);
 
         long prev_allocation = user_allocation[uid];
@@ -121,11 +122,14 @@ int main() {
         sscanf(&buffer[17], "%d", &pid);
         sscanf(&buffer[48], "%[a-zA-Z_]: member=%d size=%ld", event_name, &member, &size);
         process_event(pid, event_name, member, size);
-        if (++count > 10000) {
+        if (++count > 1000) {
             read_limit();
+            stat();
             count = 0;
             pid_to_user.clear();
-            stat();
+            pid_allocation.clear();
+            user_allocation.clear();
+            trigger = 0;
         }
         
         if (++oom_count > 10) {
