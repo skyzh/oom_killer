@@ -121,6 +121,7 @@ int main() {
     while (fgets(buffer, BUFFER_SIZE, pipe_file)) {
         sscanf(&buffer[17], "%d", &pid);
         sscanf(&buffer[48], "%[a-zA-Z_]: member=%d size=%ld", event_name, &member, &size);
+	printf("%s", buffer);
         process_event(pid, event_name, member, size);
         if (++count > 1000) {
             read_limit();
